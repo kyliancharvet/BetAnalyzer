@@ -352,6 +352,7 @@ input,select{font-family:inherit;color:var(--text);background:var(--bg3)}
   <div class="nav-logo"><span>Bet</span><span class="grad">Analyzer</span> <span style="color:var(--text3);font-size:13px">PRO</span></div>
   <div class="nav-right">
     <div class="breadcrumb" id="breadcrumb"></div>
+    <button class="nav-btn" onclick="showStats()">📊 My Stats</button>
     <button class="nav-btn" onclick="openSettings()">⚙ Settings</button>
   </div>
 </nav>
@@ -405,6 +406,17 @@ input,select{font-family:inherit;color:var(--text);background:var(--bg3)}
       <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
       <button class="btn-save" onclick="saveSettings()">Save Settings</button>
     </div>
+  </div>
+</div>
+
+<!-- STATS MODAL -->
+<div id="stats-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;overflow-y:auto;padding:20px">
+  <div style="max-width:900px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+      <h2 style="font-size:20px;font-weight:800">📊 Prediction Performance</h2>
+      <button onclick="closeStats()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:var(--r3);cursor:pointer">✕ Close</button>
+    </div>
+    <div id="stats-body"><div style="text-align:center;padding:40px;color:var(--text3)">Loading...</div></div>
   </div>
 </div>
 
@@ -463,6 +475,37 @@ const CFG = {
 
 // French bookmaker keys used for display, best-odds, and Kelly (EV still uses all books)
 const DISPLAY_BOOKS = ['winamax_fr', 'betclic_fr', 'unibet_fr', 'pmu_fr'];
+
+// Supabase — prediction tracking & auto-calibration
+const SB_URL = 'https://sjbhkbpictdbzmilcpus.supabase.co';
+const SB_KEY = 'sb_publishable_uP4M4lDYkw3JqpnWdLWJiA_zkUQFx7P';
+
+// Maps team name → confederation for calibration grouping
+const CONFEDERATION_MAP = {
+  // UEFA
+  'Germany':'UEFA','France':'UEFA','Spain':'UEFA','England':'UEFA','Portugal':'UEFA',
+  'Netherlands':'UEFA','Belgium':'UEFA','Italy':'UEFA','Croatia':'UEFA','Serbia':'UEFA',
+  'Denmark':'UEFA','Switzerland':'UEFA','Austria':'UEFA','Ukraine':'UEFA','Slovakia':'UEFA',
+  'Turkey':'UEFA','Poland':'UEFA','Czechia':'UEFA','Scotland':'UEFA','Romania':'UEFA',
+  'Hungary':'UEFA','Slovenia':'UEFA','Albania':'UEFA','Georgia':'UEFA',
+  // CONMEBOL
+  'Argentina':'CONMEBOL','Brazil':'CONMEBOL','Colombia':'CONMEBOL','Uruguay':'CONMEBOL',
+  'Ecuador':'CONMEBOL','Chile':'CONMEBOL','Venezuela':'CONMEBOL','Bolivia':'CONMEBOL',
+  'Paraguay':'CONMEBOL','Peru':'CONMEBOL',
+  // CONCACAF
+  'Mexico':'CONCACAF','United States':'CONCACAF','USA':'CONCACAF','Canada':'CONCACAF',
+  'Panama':'CONCACAF','Costa Rica':'CONCACAF','Honduras':'CONCACAF','Jamaica':'CONCACAF',
+  // AFC
+  'Japan':'AFC','South Korea':'AFC','Australia':'AFC','Saudi Arabia':'AFC',
+  'Iran':'AFC','Qatar':'AFC','Iraq':'AFC','Uzbekistan':'AFC','Jordan':'AFC',
+  // CAF
+  'Morocco':'CAF','Senegal':'CAF','Ivory Coast':'CAF','Cameroon':'CAF','Ghana':'CAF',
+  'Nigeria':'CAF','Mali':'CAF','Algeria':'CAF','Tunisia':'CAF','Egypt':'CAF',
+  'South Africa':'CAF','DR Congo':'CAF',
+};
+function getConfederation(name){
+  return CONFEDERATION_MAP[name]||Object.entries(CONFEDERATION_MAP).find(([k])=>name?.toLowerCase().includes(k.toLowerCase()))?.[1]||'OTHER';
+}
 
 /* ================================================================
    SPORTS DATA
@@ -575,6 +618,8 @@ let ST = {
   homePlayers: [],
   awayPlayers: [],
   aiText: null,
+  teamForm: {},
+  calibration: {},
 };
 
 /* ================================================================
@@ -823,6 +868,238 @@ async function fetchFootballMultiMarkets(eventId, oddsKey){
 function sportsHeaders(){
   return {'x-apisports-key':CFG.sportsKey,'Content-Type':'application/json'};
 }
+
+/* ================================================================
+   SUPABASE — prediction tracking & auto-calibration
+================================================================ */
+function sbHeaders(extra={}){
+  return{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json',...extra};
+}
+async function sbInsert(table,data){
+  const r=await fetch(`${SB_URL}/rest/v1/${table}`,{method:'POST',headers:sbHeaders({'Prefer':'return=minimal'}),body:JSON.stringify(data)});
+  if(!r.ok) throw new Error(`sb insert ${table}: ${r.status} ${await r.text()}`);
+}
+async function sbUpsert(table,data,onConflict){
+  const url=`${SB_URL}/rest/v1/${table}${onConflict?'?on_conflict='+onConflict:''}`;
+  const r=await fetch(url,{method:'POST',headers:sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(Array.isArray(data)?data:[data])});
+  if(!r.ok) throw new Error(`sb upsert ${table}: ${r.status} ${await r.text()}`);
+}
+async function sbSelect(table,qs=''){
+  const r=await fetch(`${SB_URL}/rest/v1/${table}?${qs}`,{headers:sbHeaders()});
+  if(!r.ok) throw new Error(`sb select ${table}: ${r.status}`);
+  return r.json();
+}
+
+async function savePrediction(markets,matrix,lambda,oddsData){
+  if(!matrix||!ST.match) return;
+  try{
+    const p=calc1X2fromMatrix(matrix);
+    const btts=calcBTTSfromMatrix(matrix);
+    const o25=calcTotalsFromMatrix(matrix,2.5);
+    const thr=evThreshold();
+    const valueBets=markets.filter(m=>m.frBestOdds&&m.frEV!=null&&m.frEV>=thr).map(m=>({
+      market:m.name,outcome:m.outcome||m.name,ourProb:m.ourProb,
+      frBestOdds:m.frBestOdds,frBestBook:m.frBestBook,frEV:m.frEV,kelly:m.kelly,
+    }));
+    const q=oddsData?.bookmakers?.length?oddsTo1X2Probs(oddsData.bookmakers):null;
+    const conf=getConfederation(ST.match.home_team)!=='OTHER'?getConfederation(ST.match.home_team):getConfederation(ST.match.away_team);
+    await sbUpsert('predictions',{
+      match_id:ST.match.id,home_team:ST.match.home_team,away_team:ST.match.away_team,
+      match_date:ST.match.commence_time,competition:ST.league?.name||'Unknown',
+      home_win_prob:p.home,draw_prob:p.draw,away_win_prob:p.away,
+      btts_prob:btts.yes,over25_prob:o25.over,
+      lambda_home:lambda?.home,lambda_away:lambda?.away,
+      value_bets:valueBets,
+      bookmaker_odds:q?{probHome:q.probHome,probDraw:q.probDraw,probAway:q.probAway}:null,
+      confederation:conf,
+    },'match_id');
+    console.log('[Supabase] ✓ prediction saved:',ST.match.home_team,'vs',ST.match.away_team);
+  }catch(e){ console.warn('[Supabase] save prediction failed:',e.message); }
+}
+
+async function fetchAndSaveResult(matchId,homeTeam,awayTeam,matchDate){
+  try{
+    const team=await fetchWCTeamByName(homeTeam);
+    if(!team?.id) return;
+    const date=matchDate.slice(0,10);
+    const url=`https://v3.football.api-sports.io/fixtures?team=${team.id}&date=${date}`;
+    console.log('[result] fetching →',url);
+    const d=await cfetch(url,{headers:sportsHeaders()},0);
+    const fixtures=d?.response||[];
+    const norm=s=>(s||'').toLowerCase().split(' ').pop();
+    const fix=fixtures.find(f=>{
+      const h=norm(f.teams?.home?.name), a=norm(f.teams?.away?.name);
+      return (h===norm(homeTeam)||norm(homeTeam)===h) && (a===norm(awayTeam)||norm(awayTeam)===a);
+    })||fixtures[0];
+    if(!fix){console.warn('[result] no fixture for',homeTeam,'vs',awayTeam,'on',date);return;}
+    if(fix.fixture?.status?.short!=='FT'){console.log('[result] not finished:',fix.fixture?.status?.long);return;}
+    const hg=fix.goals?.home??0, ag=fix.goals?.away??0;
+    await sbUpsert('results',{
+      match_id:matchId,home_goals:hg,away_goals:ag,
+      result:hg>ag?'H':ag>hg?'A':'D',btts:hg>0&&ag>0,over25:(hg+ag)>2.5,
+    },'match_id');
+    console.log(`[result] ✓ ${homeTeam} ${hg}-${ag} ${awayTeam}`);
+    calcCalibration().catch(e=>console.warn('[calibration]',e.message));
+  }catch(e){ console.warn('[result] error:',e.message); }
+}
+
+async function calcCalibration(){
+  try{
+    const preds=await sbSelect('predictions','select=match_id,home_team,away_team,home_win_prob,draw_prob,away_win_prob,btts_prob,over25_prob,value_bets,confederation');
+    const results=await sbSelect('results','select=match_id,result,btts,over25');
+    const resMap=new Map(results.map(r=>[r.match_id,r]));
+    const joined=preds.filter(p=>resMap.has(p.match_id)).map(p=>({...p,...resMap.get(p.match_id)}));
+    if(!joined.length) return;
+    const groups={};
+    joined.forEach(m=>{ const c=m.confederation||'OTHER'; (groups[c]=groups[c]||[]).push(m); });
+    const rows=[];
+    for(const[conf,ms] of Object.entries(groups)){
+      if(ms.length<3) continue;
+      let bs=0;
+      ms.forEach(m=>{
+        const h=m.result==='H'?1:0, d=m.result==='D'?1:0, a=m.result==='A'?1:0;
+        bs+=(m.home_win_prob-h)**2+(m.draw_prob-d)**2+(m.away_win_prob-a)**2;
+      });
+      const brierScore=bs/ms.length;
+      let tStake=0, tRet=0;
+      ms.forEach(m=>{
+        (m.value_bets||[]).forEach(b=>{
+          if(!b.kelly||!b.frBestOdds) return;
+          const stake=b.kelly*(CFG.bankroll||1000);
+          tStake+=stake;
+          const oc=(b.outcome||'').toLowerCase();
+          const won=(oc.includes((m.home_team||'').toLowerCase().split(' ').pop())&&m.result==='H')
+            ||(oc.includes('draw')&&m.result==='D')
+            ||(oc.includes((m.away_team||'').toLowerCase().split(' ').pop())&&m.result==='A')
+            ||(oc==='yes'&&m.btts)||(oc.includes('over')&&m.over25);
+          if(won) tRet+=stake*b.frBestOdds;
+        });
+      });
+      const roi=tStake>0?(tRet-tStake)/tStake:null;
+      const factor=Math.max(0.7,Math.min(1.3,1-(brierScore-0.2)*0.5));
+      rows.push({confederation:conf,brier_score:brierScore,roi,factor,sample_count:ms.length,updated_at:new Date().toISOString()});
+    }
+    if(rows.length) await sbUpsert('calibration',rows,'confederation');
+    ST.calibration=Object.fromEntries(rows.map(r=>[r.confederation,r.factor]));
+    console.log('[calibration] updated:',ST.calibration);
+  }catch(e){ console.warn('[calibration] error:',e.message); }
+}
+
+async function loadCalibration(){
+  if(!SB_KEY) return;
+  try{
+    const rows=await sbSelect('calibration','select=confederation,factor');
+    rows.forEach(r=>{ ST.calibration[r.confederation]=r.factor; });
+    if(rows.length) console.log('[calibration] loaded:',ST.calibration);
+  }catch(e){ console.warn('[calibration] load failed:',e.message); }
+}
+
+async function showStats(){
+  const modal=$('stats-modal');
+  const body=$('stats-body');
+  modal.style.display='block';
+  body.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Loading...</div>';
+  try{
+    const[preds,results,cal]=await Promise.all([
+      sbSelect('predictions','select=*&order=created_at.desc&limit=100'),
+      sbSelect('results','select=*'),
+      sbSelect('calibration','select=*'),
+    ]);
+    const resMap=new Map(results.map(r=>[r.match_id,r]));
+    const joined=preds.map(p=>({...p,res:resMap.get(p.match_id)||null}));
+    const total=preds.length;
+    const withResult=joined.filter(j=>j.res);
+    let tStake=0,tRet=0;
+    withResult.forEach(j=>{
+      (j.value_bets||[]).forEach(b=>{
+        if(!b.kelly||!b.frBestOdds) return;
+        const stake=b.kelly*(CFG.bankroll||1000); tStake+=stake;
+        const oc=(b.outcome||'').toLowerCase();
+        const won=(oc.includes((j.home_team||'').toLowerCase().split(' ').pop())&&j.res.result==='H')
+          ||(oc.includes('draw')&&j.res.result==='D')
+          ||(oc.includes((j.away_team||'').toLowerCase().split(' ').pop())&&j.res.result==='A')
+          ||(oc==='yes'&&j.res.btts)||(oc.includes('over')&&j.res.over25);
+        if(won) tRet+=stake*b.frBestOdds;
+      });
+    });
+    const roi=tStake>0?((tRet-tStake)/tStake*100).toFixed(1):null;
+    const roiColor=roi===null?'var(--text3)':roi>=0?'var(--green)':'var(--red)';
+    const calRows=cal.map(c=>`<tr>
+      <td style="padding:8px 12px;font-weight:600">${c.confederation}</td>
+      <td style="padding:8px 12px">${c.brier_score?.toFixed(3)??'-'}</td>
+      <td style="padding:8px 12px;color:${c.roi!=null?(c.roi>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${c.roi!=null?(c.roi>=0?'+':'')+(c.roi*100).toFixed(1)+'%':'-'}</td>
+      <td style="padding:8px 12px">${c.factor?.toFixed(3)??'-'}</td>
+      <td style="padding:8px 12px;color:var(--text3)">${c.sample_count??0}</td>
+    </tr>`).join('');
+    const recentRows=joined.slice(0,10).map(j=>{
+      const res=j.res;
+      const icon=!res?'⏳':res.result?(j.res&&j.value_bets?.length?'':'')+' ':'';
+      const scoreStr=res?`${res.home_goals}-${res.away_goals}`:'Pending';
+      return`<tr>
+        <td style="padding:8px 12px;font-size:12px">${j.match_date?.slice(0,10)||'-'}</td>
+        <td style="padding:8px 12px;font-weight:600;font-size:12px">${j.home_team} vs ${j.away_team}</td>
+        <td style="padding:8px 12px;font-size:12px">${j.home_win_prob!=null?Math.round(j.home_win_prob*100)+'%':'-'}</td>
+        <td style="padding:8px 12px;font-size:12px">${j.draw_prob!=null?Math.round(j.draw_prob*100)+'%':'-'}</td>
+        <td style="padding:8px 12px;font-size:12px">${j.away_win_prob!=null?Math.round(j.away_win_prob*100)+'%':'-'}</td>
+        <td style="padding:8px 12px;font-weight:700;color:${res?'var(--text)':'var(--text3)'}">${scoreStr}</td>
+        <td style="padding:8px 12px;color:var(--text3);font-size:11px">${(j.value_bets||[]).length} bets</td>
+      </tr>`;
+    }).join('');
+    body.innerHTML=`
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px">
+        <div style="background:var(--bg3);border-radius:var(--r3);padding:20px;text-align:center">
+          <div style="font-size:28px;font-weight:900">${total}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">Predictions tracked</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r3);padding:20px;text-align:center">
+          <div style="font-size:28px;font-weight:900">${withResult.length}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">Results fetched</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r3);padding:20px;text-align:center">
+          <div style="font-size:28px;font-weight:900;color:${roiColor}">${roi!==null?(roi>=0?'+':'')+roi+'%':'—'}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">Overall ROI</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r3);padding:20px;text-align:center">
+          <div style="font-size:28px;font-weight:900">€${tRet.toFixed(0)}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">Total returns (€${tStake.toFixed(0)} staked)</div>
+        </div>
+      </div>
+      ${cal.length?`
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Calibration by Confederation</h3>
+      <div style="overflow-x:auto;margin-bottom:28px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:8px 12px;text-align:left">Confederation</th>
+            <th style="padding:8px 12px">Brier Score</th>
+            <th style="padding:8px 12px">ROI</th>
+            <th style="padding:8px 12px">λ Factor</th>
+            <th style="padding:8px 12px">Samples</th>
+          </tr></thead>
+          <tbody>${calRows}</tbody>
+        </table>
+      </div>`:''}
+      ${joined.length?`
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Last 10 Predictions</h3>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:8px 12px;text-align:left">Date</th>
+            <th style="padding:8px 12px;text-align:left">Match</th>
+            <th style="padding:8px 12px">Home%</th>
+            <th style="padding:8px 12px">Draw%</th>
+            <th style="padding:8px 12px">Away%</th>
+            <th style="padding:8px 12px">Score</th>
+            <th style="padding:8px 12px">Value bets</th>
+          </tr></thead>
+          <tbody>${recentRows}</tbody>
+        </table>
+      </div>`:'<div style="color:var(--text3);font-size:13px">No predictions yet. Analyze a WC 2026 match to start tracking.</div>'}
+    `;
+  }catch(e){
+    body.innerHTML=`<div style="color:var(--red);padding:20px">Error loading stats: ${e.message}</div>`;
+  }
+}
+function closeStats(){ $('stats-modal').style.display='none'; }
 
 async function fetchFixtures(type, leagueId, season){
   const base = CFG.sportsBase[type] || CFG.sportsBase.football;
@@ -2266,6 +2543,14 @@ function calcWCLambda(homeResult, awayResult, oddsData){
     console.log(`H2H adjustment — ${h2hAdj.dominantTeam} dominates (${h2hAdj.w1}W-${h2hAdj.d}D-${h2hAdj.w2}W) → λH:${lh.toFixed(2)} λA:${la.toFixed(2)}`);
   }
 
+  // Confederation calibration factor (updated from Supabase after each result)
+  const hConf=getConfederation(hName), aConf=getConfederation(aName);
+  const hFactor=ST.calibration[hConf]||1, aFactor=ST.calibration[aConf]||1;
+  if(hFactor!==1||aFactor!==1){
+    lh=clamp(lh*hFactor,0.3,4.0); la=clamp(la*aFactor,0.3,4.0);
+    console.log(`Calibration    — ${hConf}:×${hFactor.toFixed(3)} ${aConf}:×${aFactor.toFixed(3)} → λH:${lh.toFixed(2)} λA:${la.toFixed(2)}`);
+  }
+
   console.log(`Lambda final   — ${hName}: ${lh.toFixed(2)} | ${aName}: ${la.toFixed(2)}`);
   console.groupEnd();
 
@@ -3302,6 +3587,16 @@ async function startAnalysis(){
   hideLoading();
 
   renderFullAnalysis({oddsData,matrix,lambda,markets,topBets,aiText,league});
+
+  // Supabase: save prediction and schedule result fetch 3h after kick-off (WC mode)
+  if(wcMode&&matrix){
+    savePrediction(markets,matrix,lambda,oddsData);
+    const kickOff=new Date(ST.match.commence_time).getTime();
+    const msUntilResult=kickOff+3*3600*1000-Date.now();
+    const delay=Math.max(msUntilResult,5000);
+    console.log(`[result] scheduled fetch in ${Math.round(delay/60000)}min`);
+    setTimeout(()=>fetchAndSaveResult(ST.match.id,ST.match.home_team,ST.match.away_team,ST.match.commence_time),delay);
+  }
 }
 
 // Binary search for (lh, la) whose Poisson score matrix yields the given 1X2 probabilities.
@@ -4016,6 +4311,7 @@ function init(){
   if(savedMinConf>=5) CFG.minConfidence=savedMinConf;
   // Clear stale session cache on load so API endpoint changes take effect
   try{ sessionStorage.clear(); }catch(e){}
+  loadCalibration(); // async — loads confederation factors from Supabase in background
   renderHome();
 }
 
