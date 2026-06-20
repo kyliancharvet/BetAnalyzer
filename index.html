@@ -385,6 +385,10 @@ input,select{font-family:inherit;color:var(--text);background:var(--bg3)}
       <input type="text" id="inp-fdkey" placeholder="paste your X-Auth-Token here" />
     </div>
     <div class="form-group">
+      <label>RapidAPI Key <span style="font-size:11px;color:var(--text3)">(rapidapi.com → api-football-v1 — fetches WC 2026 live results)</span></label>
+      <input type="text" id="inp-rapidkey" placeholder="paste your RapidAPI key here" />
+    </div>
+    <div class="form-group">
       <label>Bankroll (€) <span style="font-size:11px;color:var(--text3)">Used for Kelly Criterion stake sizing</span></label>
       <input type="number" id="inp-bankroll" min="1" step="1" placeholder="1000" />
     </div>
@@ -415,7 +419,8 @@ input,select{font-family:inherit;color:var(--text);background:var(--bg3)}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:20px;font-weight:800">📊 Prediction Performance</h2>
       <div style="display:flex;gap:8px;align-items:center">
-        <button id="btn-backtest" onclick="runBacktest2022()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:var(--r3);cursor:pointer;font-size:13px">🔄 Run WC 2022 Backtest</button>
+        <button id="btn-sync2026" onclick="syncWC2026()" style="background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;border:none;padding:6px 14px;border-radius:var(--r3);cursor:pointer;font-size:13px;font-weight:600">⚡ Sync WC 2026</button>
+        <button id="btn-backtest" onclick="runBacktest2022()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:var(--r3);cursor:pointer;font-size:13px">🔄 WC 2022 Backtest</button>
         <button onclick="closeStats()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:var(--r3);cursor:pointer">✕ Close</button>
       </div>
     </div>
@@ -461,7 +466,8 @@ const CFG = {
   oddsKey: '7e47b756e500be769f25241244fd10c9',
   sportsKey: 'e5d31b7c86918c21e07f13b19e0363e3',
   anthropicKey: '',
-  fdKey: '',  // football-data.org free tier key
+  fdKey: '',
+  rapidKey: '',  // RapidAPI key for api-football-v1 (WC 2026 results)
   bankroll: 1000,
   evThreshold: 0.03,
   minConfidence: 7,
@@ -934,6 +940,96 @@ async function fetchFootballMultiMarkets(eventId, oddsKey){
 function sportsHeaders(){
   return {'x-apisports-key':CFG.sportsKey,'Content-Type':'application/json'};
 }
+function rapidHeaders(){
+  return {'X-RapidAPI-Key':CFG.rapidKey,'X-RapidAPI-Host':'api-football-v1.p.rapidapi.com'};
+}
+
+// Fetch all completed WC 2026 matches from RapidAPI API-Football.
+// Logs full detail (scores, goalscorers, stats) and saves to Supabase results table.
+async function fetchWC2026Results(){
+  if(!CFG.rapidKey) throw new Error('RapidAPI key not set — add it in ⚙ Settings');
+  const url='https://api-football-v1.p.rapidapi.com/v3/fixtures?league=1&season=2026&status=FT';
+  console.group('[RapidAPI] WC 2026 completed fixtures');
+  console.log('GET',url);
+  const resp=await fetch(url,{headers:rapidHeaders()});
+  if(!resp.ok) throw new Error(`RapidAPI ${resp.status}: ${await resp.text()}`);
+  const data=await resp.json();
+  const fixtures=data?.response||[];
+  console.log(`Total FT fixtures: ${fixtures.length}`);
+
+  if(!fixtures.length){ console.groupEnd(); return []; }
+
+  // Log each match with full detail
+  fixtures.forEach((f,i)=>{
+    const fix=f.fixture, teams=f.teams, goals=f.goals, score=f.score;
+    const events=(f.events||[]);
+    const stats=(f.statistics||[]);
+    console.group(`#${i+1} [${fix?.date?.slice(0,10)}] ${fix?.id} — ${f.league?.round}`);
+    console.log(`  ${teams?.home?.name} ${goals?.home} – ${goals?.away} ${teams?.away?.name}`);
+    console.log(`  HT: ${score?.halftime?.home}-${score?.halftime?.away} | FT: ${score?.fulltime?.home}-${score?.fulltime?.away}`);
+    if(score?.extratime?.home!=null) console.log(`  AET: ${score.extratime.home}-${score.extratime.away}`);
+    if(score?.penalty?.home!=null) console.log(`  Pen: ${score.penalty.home}-${score.penalty.away}`);
+    // Goalscorers
+    const goals_ev=events.filter(e=>e.type==='Goal');
+    if(goals_ev.length){
+      console.log('  Goals:');
+      goals_ev.forEach(e=>console.log(`    ${e.time?.elapsed}' ${e.team?.name} — ${e.player?.name}${e.detail==='Penalty'?' (pen)':e.detail==='Own Goal'?' (og)':''}`));
+    }
+    // Key stats
+    if(stats.length){
+      const homeStats=stats.find(s=>s.team?.id===teams?.home?.id)?.statistics||[];
+      const awayStats=stats.find(s=>s.team?.id===teams?.away?.id)?.statistics||[];
+      const getStat=(arr,type)=>arr.find(s=>s.type===type)?.value??'—';
+      console.log('  Stats: Poss',getStat(homeStats,'Ball Possession'),'vs',getStat(awayStats,'Ball Possession'),
+        '| xG',getStat(homeStats,'expected_goals'),'vs',getStat(awayStats,'expected_goals'),
+        '| Shots',getStat(homeStats,'Total Shots'),'vs',getStat(awayStats,'Total Shots'));
+    }
+    console.groupEnd();
+  });
+
+  // Save all results to Supabase
+  console.log(`[RapidAPI] Saving ${fixtures.length} results to Supabase...`);
+  const rows=fixtures.map(f=>{
+    const hg=f.goals?.home??0, ag=f.goals?.away??0;
+    const pen=f.score?.penalty;
+    let result=hg>ag?'H':ag>hg?'A':'D';
+    // Knock-out: use penalty result if available
+    if(pen?.home!=null&&pen?.away!=null) result=pen.home>pen.away?'H':'A';
+    // Goalscorers list
+    const goalscorers=(f.events||[]).filter(e=>e.type==='Goal').map(e=>({
+      minute:e.time?.elapsed,team:e.team?.name,player:e.player?.name,detail:e.detail,
+    }));
+    // Stats snapshot
+    const homeS=(f.statistics||[]).find(s=>s.team?.id===f.teams?.home?.id)?.statistics||[];
+    const awayS=(f.statistics||[]).find(s=>s.team?.id===f.teams?.away?.id)?.statistics||[];
+    const gs=(arr,t)=>arr.find(s=>s.type===t)?.value??null;
+    return{
+      match_id:String(f.fixture?.id),
+      home_goals:hg, away_goals:ag, result,
+      btts:hg>0&&ag>0, over25:(hg+ag)>2.5,
+      halftime_home:f.score?.halftime?.home, halftime_away:f.score?.halftime?.away,
+      penalty_home:f.score?.penalty?.home??null, penalty_away:f.score?.penalty?.away??null,
+      goalscorers:goalscorers.length?goalscorers:null,
+      stats_poss_home:gs(homeS,'Ball Possession'), stats_poss_away:gs(awayS,'Ball Possession'),
+      stats_xg_home:gs(homeS,'expected_goals'), stats_xg_away:gs(awayS,'expected_goals'),
+      stats_shots_home:gs(homeS,'Total Shots'), stats_shots_away:gs(awayS,'Total Shots'),
+    };
+  });
+  // Try full upsert first; fall back to base fields only if table lacks extended columns
+  try{
+    await sbUpsert('results',rows,'match_id');
+  }catch(e){
+    console.warn('[RapidAPI] full upsert failed (missing columns?), retrying base fields only:',e.message);
+    const base=rows.map(({match_id,home_goals,away_goals,result,btts,over25})=>({match_id,home_goals,away_goals,result,btts,over25}));
+    await sbUpsert('results',base,'match_id');
+  }
+  console.log(`[RapidAPI] ✓ ${rows.length} results saved to Supabase`);
+  console.groupEnd();
+
+  // Match saved results to local predictions and trigger calibration
+  calcCalibration().catch(e=>console.warn('[calibration]',e.message));
+  return rows;
+}
 
 /* ================================================================
    SUPABASE — prediction tracking & auto-calibration
@@ -1357,6 +1453,22 @@ async function showStats(){
   }
 }
 function closeStats(){ $('stats-modal').style.display='none'; }
+async function syncWC2026(){
+  const btn=$('btn-sync2026');
+  if(btn){ btn.textContent='⏳ Syncing...'; btn.disabled=true; }
+  const body=$('stats-body');
+  try{
+    const rows=await fetchWC2026Results();
+    const msg=`<div style="padding:10px 14px;background:rgba(0,200,100,0.1);border:1px solid var(--green);border-radius:var(--r3);font-size:13px;color:var(--green);margin-bottom:16px">✓ Synced ${rows.length} WC 2026 results from RapidAPI → Supabase</div>`;
+    await showStats();
+    body.insertAdjacentHTML('afterbegin',msg);
+  }catch(e){
+    console.error('[sync2026]',e.message);
+    body.insertAdjacentHTML('afterbegin',`<div style="padding:10px 14px;background:rgba(255,0,0,0.1);border:1px solid var(--red);border-radius:var(--r3);font-size:13px;color:var(--red);margin-bottom:16px">Error: ${e.message}</div>`);
+  }finally{
+    if(btn){ btn.textContent='⚡ Sync WC 2026'; btn.disabled=false; }
+  }
+}
 async function submitManualResult(){
   const sel=$('sb-match-sel'); const msg=$('sb-result-msg');
   const hg=$('sb-hg').value; const ag=$('sb-ag').value;
@@ -4531,6 +4643,7 @@ function openSettings(){
   $('inp-odds').value=CFG.oddsKey;
   $('inp-apisports').value=CFG.sportsKey;
   $('inp-fdkey').value=CFG.fdKey;
+  $('inp-rapidkey').value=CFG.rapidKey;
   $('inp-bankroll').value=CFG.bankroll;
   const thr=Math.round(CFG.evThreshold*100);
   $('inp-ev-threshold').value=thr;
@@ -4545,6 +4658,8 @@ function saveSettings(){
   CFG.oddsKey=$('inp-odds').value.trim();
   CFG.sportsKey=$('inp-apisports').value.trim();
   CFG.fdKey=$('inp-fdkey').value.trim();
+  CFG.rapidKey=$('inp-rapidkey').value.trim();
+  localStorage.setItem('ba_rapidkey',CFG.rapidKey);
   const br=parseFloat($('inp-bankroll').value);
   if(br>0) CFG.bankroll=br;
   const evThr=parseInt($('inp-ev-threshold').value,10);
@@ -4577,6 +4692,7 @@ function switchMktTab(cat, btn){
 function init(){
   CFG.anthropicKey=localStorage.getItem('ba_anthropic')||'';
   CFG.fdKey=localStorage.getItem('ba_fdkey')||'';
+  CFG.rapidKey=localStorage.getItem('ba_rapidkey')||'';
   const savedBankroll=parseFloat(localStorage.getItem('ba_bankroll'));
   if(savedBankroll>0) CFG.bankroll=savedBankroll;
   const savedEVThr=parseFloat(localStorage.getItem('ba_ev_threshold'));
