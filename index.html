@@ -412,9 +412,12 @@ input,select{font-family:inherit;color:var(--text);background:var(--bg3)}
 <!-- STATS MODAL -->
 <div id="stats-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:300;overflow-y:auto;padding:20px">
   <div style="max-width:900px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:28px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px">
       <h2 style="font-size:20px;font-weight:800">📊 Prediction Performance</h2>
-      <button onclick="closeStats()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:var(--r3);cursor:pointer">✕ Close</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btn-backtest" onclick="runBacktest2022()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:var(--r3);cursor:pointer;font-size:13px">🔄 Run WC 2022 Backtest</button>
+        <button onclick="closeStats()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:var(--r3);cursor:pointer">✕ Close</button>
+      </div>
     </div>
     <div id="stats-body"><div style="text-align:center;padding:40px;color:var(--text3)">Loading...</div></div>
   </div>
@@ -505,6 +508,69 @@ const CONFEDERATION_MAP = {
 };
 function getConfederation(name){
   return CONFEDERATION_MAP[name]||Object.entries(CONFEDERATION_MAP).find(([k])=>name?.toLowerCase().includes(k.toLowerCase()))?.[1]||'OTHER';
+}
+
+// Pre-tournament qualifying stats for all 32 WC 2022 teams.
+// Source: official qualifying campaigns (goals per game).
+// API-Sports team names used as keys; fuzzy fallback in lookupTeamStats2022().
+const TEAM_STATS_2022 = {
+  // Group A
+  'Qatar':          {gf:1.20,ga:1.50,conf:'AFC'},      // host nation — friendly record
+  'Ecuador':        {gf:1.50,ga:1.44,conf:'CONMEBOL'},
+  'Senegal':        {gf:1.90,ga:0.80,conf:'CAF'},
+  'Netherlands':    {gf:3.30,ga:0.50,conf:'UEFA'},
+  // Group B
+  'England':        {gf:3.90,ga:0.30,conf:'UEFA'},
+  'IR Iran':        {gf:1.60,ga:0.30,conf:'AFC'},
+  'Iran':           {gf:1.60,ga:0.30,conf:'AFC'},
+  'United States':  {gf:1.50,ga:0.71,conf:'CONCACAF'},
+  'Wales':          {gf:1.90,ga:0.90,conf:'UEFA'},
+  // Group C
+  'Argentina':      {gf:1.59,ga:0.47,conf:'CONMEBOL'},
+  'Saudi Arabia':   {gf:1.40,ga:0.70,conf:'AFC'},
+  'Mexico':         {gf:1.29,ga:1.00,conf:'CONCACAF'},
+  'Poland':         {gf:2.80,ga:1.20,conf:'UEFA'},
+  // Group D
+  'France':         {gf:2.25,ga:0.75,conf:'UEFA'},
+  'Australia':      {gf:1.10,ga:0.90,conf:'AFC'},
+  'Denmark':        {gf:3.00,ga:0.30,conf:'UEFA'},
+  'Tunisia':        {gf:1.90,ga:0.80,conf:'CAF'},
+  // Group E
+  'Spain':          {gf:2.00,ga:0.50,conf:'UEFA'},
+  'Costa Rica':     {gf:0.86,ga:1.43,conf:'CONCACAF'},
+  'Germany':        {gf:3.60,ga:0.40,conf:'UEFA'},
+  'Japan':          {gf:1.20,ga:0.20,conf:'AFC'},
+  // Group F
+  'Belgium':        {gf:2.50,ga:0.90,conf:'UEFA'},
+  'Canada':         {gf:1.64,ga:0.50,conf:'CONCACAF'},
+  'Morocco':        {gf:2.20,ga:0.55,conf:'CAF'},
+  'Croatia':        {gf:2.10,ga:0.50,conf:'UEFA'},
+  // Group G
+  'Brazil':         {gf:2.35,ga:0.29,conf:'CONMEBOL'},
+  'Serbia':         {gf:2.20,ga:0.60,conf:'UEFA'},
+  'Switzerland':    {gf:2.10,ga:0.60,conf:'UEFA'},
+  'Cameroon':       {gf:2.13,ga:0.75,conf:'CAF'},
+  // Group H
+  'Portugal':       {gf:2.90,ga:0.50,conf:'UEFA'},
+  'Ghana':          {gf:1.50,ga:1.25,conf:'CAF'},
+  'Uruguay':        {gf:1.33,ga:1.06,conf:'CONMEBOL'},
+  'Korea Republic': {gf:1.00,ga:0.40,conf:'AFC'},
+  'South Korea':    {gf:1.00,ga:0.40,conf:'AFC'},
+};
+function lookupTeamStats2022(name){
+  if(!name) return null;
+  if(TEAM_STATS_2022[name]) return TEAM_STATS_2022[name];
+  const lower=name.toLowerCase();
+  const entry=Object.entries(TEAM_STATS_2022).find(([k])=>
+    k.toLowerCase()===lower||lower.includes(k.toLowerCase())||k.toLowerCase().includes(lower)
+  );
+  return entry?.[1]||null;
+}
+function calcLambdaBacktest(hGF,hGA,aGF,aGA){
+  const avg=1.25;
+  const lh=clamp(hGF/avg*aGA/avg*avg,0.3,4.0);
+  const la=clamp(aGF/avg*hGA/avg*avg,0.3,4.0);
+  return{home:lh,away:la};
 }
 
 /* ================================================================
@@ -917,29 +983,47 @@ async function savePrediction(markets,matrix,lambda,oddsData){
   }catch(e){ console.warn('[Supabase] save prediction failed:',e.message); }
 }
 
-async function fetchAndSaveResult(matchId,homeTeam,awayTeam,matchDate){
+// Save a match result manually or from a known score.
+// API-Sports free plan blocks season 2026, so automatic fetching of WC 2026 results
+// is not possible. Call saveMatchResult() directly with the known score instead.
+async function saveMatchResult(matchId,homeTeam,awayTeam,homeGoals,awayGoals){
   try{
-    const team=await fetchWCTeamByName(homeTeam);
-    if(!team?.id) return;
-    const date=matchDate.slice(0,10);
-    const url=`https://v3.football.api-sports.io/fixtures?team=${team.id}&date=${date}`;
-    console.log('[result] fetching →',url);
-    const d=await cfetch(url,{headers:sportsHeaders()},0);
-    const fixtures=d?.response||[];
-    const norm=s=>(s||'').toLowerCase().split(' ').pop();
-    const fix=fixtures.find(f=>{
-      const h=norm(f.teams?.home?.name), a=norm(f.teams?.away?.name);
-      return (h===norm(homeTeam)||norm(homeTeam)===h) && (a===norm(awayTeam)||norm(awayTeam)===a);
-    })||fixtures[0];
-    if(!fix){console.warn('[result] no fixture for',homeTeam,'vs',awayTeam,'on',date);return;}
-    if(fix.fixture?.status?.short!=='FT'){console.log('[result] not finished:',fix.fixture?.status?.long);return;}
-    const hg=fix.goals?.home??0, ag=fix.goals?.away??0;
+    const hg=parseInt(homeGoals,10), ag=parseInt(awayGoals,10);
     await sbUpsert('results',{
       match_id:matchId,home_goals:hg,away_goals:ag,
       result:hg>ag?'H':ag>hg?'A':'D',btts:hg>0&&ag>0,over25:(hg+ag)>2.5,
     },'match_id');
-    console.log(`[result] ✓ ${homeTeam} ${hg}-${ag} ${awayTeam}`);
+    console.log(`[result] ✓ saved: ${homeTeam} ${hg}-${ag} ${awayTeam}`);
     calcCalibration().catch(e=>console.warn('[calibration]',e.message));
+  }catch(e){ console.warn('[result] save error:',e.message); }
+}
+
+// Attempts to fetch result from API-Sports (season=2024 only — free plan limitation).
+// For WC 2026 matches use saveMatchResult() directly with the known score.
+async function fetchAndSaveResult(matchId,homeTeam,awayTeam,matchDate){
+  try{
+    const team=await fetchWCTeamByName(homeTeam);
+    if(!team?.id) return;
+    // Free plan: season 2026 is blocked. Try season=2024 (covers matches up to Nov 2025).
+    // WC 2026 group stage results must be entered via saveMatchResult() manually.
+    const url=`https://v3.football.api-sports.io/fixtures?team=${team.id}&season=2024&status=FT`;
+    console.log('[result] fetching season=2024 fixtures →',url);
+    const d=await cfetch(url,{headers:sportsHeaders()},0);
+    const matchDay=matchDate.slice(0,10);
+    const norm=s=>(s||'').toLowerCase().split(' ').pop();
+    const fix=(d?.response||[]).find(f=>
+      f.fixture?.date?.slice(0,10)===matchDay &&
+      norm(f.teams?.home?.name)===norm(homeTeam) &&
+      norm(f.teams?.away?.name)===norm(awayTeam)
+    );
+    if(!fix){
+      console.warn(`[result] match not found in season=2024 data for ${homeTeam} vs ${awayTeam} on ${matchDay}`);
+      console.info('[result] For WC 2026 matches, call: saveMatchResult("'+matchId+'","'+homeTeam+'","'+awayTeam+'", homeGoals, awayGoals)');
+      return;
+    }
+    if(fix.fixture?.status?.short!=='FT'){console.log('[result] not finished yet:',fix.fixture?.status?.long);return;}
+    const hg=fix.goals?.home??0, ag=fix.goals?.away??0;
+    await saveMatchResult(matchId,homeTeam,awayTeam,hg,ag);
   }catch(e){ console.warn('[result] error:',e.message); }
 }
 
@@ -994,17 +1078,108 @@ async function loadCalibration(){
   }catch(e){ console.warn('[calibration] load failed:',e.message); }
 }
 
+async function updateCalibrationFromBacktest(results){
+  const groups={};
+  results.forEach(r=>{ const c=r.confederation||'OTHER'; (groups[c]=groups[c]||[]).push(r); });
+  const rows=[];
+  for(const[conf,ms] of Object.entries(groups)){
+    if(ms.length<3) continue;
+    const avgBrier=ms.reduce((s,m)=>s+m.brier_score,0)/ms.length;
+    const bttsAcc=ms.filter(m=>m.actual_btts===m.pred_btts_bool).length/ms.length;
+    const o25Acc=ms.filter(m=>m.actual_over25===m.pred_over25_bool).length/ms.length;
+    // Factor: shrink λ if model overestimates (Brier > 0.22 baseline for 3-outcome)
+    const factor=Math.max(0.7,Math.min(1.3,1-(avgBrier-0.22)*0.5));
+    rows.push({confederation:conf,brier_score:avgBrier,roi:null,factor,sample_count:ms.length,updated_at:new Date().toISOString()});
+  }
+  if(rows.length){
+    await sbUpsert('calibration',rows,'confederation');
+    ST.calibration=Object.fromEntries(rows.map(r=>[r.confederation,r.factor]));
+    console.log('[backtest] calibration updated from WC 2022:',ST.calibration);
+  }
+  return rows;
+}
+
+async function runBacktest2022(){
+  const btn=$('btn-backtest');
+  const body=$('stats-body');
+  if(btn){ btn.textContent='⏳ Fetching 59 WC 2022 matches...'; btn.disabled=true; }
+  try{
+    // 1. Fetch all WC 2022 completed fixtures
+    const url='https://v3.football.api-sports.io/fixtures?league=1&season=2022&status=FT';
+    const d=await cfetch(url,{headers:sportsHeaders()},36e5);
+    const fixtures=d?.response||[];
+    if(!fixtures.length) throw new Error('No WC 2022 fixtures returned');
+    if(btn) btn.textContent=`⏳ Running model on ${fixtures.length} matches...`;
+
+    // 2. Run Poisson model for each match using pre-tournament qualifying stats
+    const rows=[];
+    let missing=[];
+    for(const f of fixtures){
+      const hName=f.teams?.home?.name, aName=f.teams?.away?.name;
+      const hS=lookupTeamStats2022(hName), aS=lookupTeamStats2022(aName);
+      if(!hS||!aS){ missing.push(`${hName} vs ${aName}`); continue; }
+      const lambda=calcLambdaBacktest(hS.gf,hS.ga,aS.gf,aS.ga);
+      const matrix=correctScoreMatrix(lambda.home,lambda.away);
+      const pred=calc1X2fromMatrix(matrix);
+      const btts=calcBTTSfromMatrix(matrix);
+      const o25=calcTotalsFromMatrix(matrix,2.5);
+      const hg=f.goals?.home??0, ag=f.goals?.away??0;
+      const actualResult=hg>ag?'H':ag>hg?'A':'D';
+      const actualBTTS=hg>0&&ag>0, actualO25=(hg+ag)>2.5;
+      const h=actualResult==='H'?1:0, dv=actualResult==='D'?1:0, a=actualResult==='A'?1:0;
+      const brier=((pred.home-h)**2+(pred.draw-dv)**2+(pred.away-a)**2)/3;
+      const conf=hS.conf||aS.conf||'OTHER';
+      // Simulate €10 flat-stake value bet: bet if model prob > implied+3%
+      // Without real 2022 odds we use model prob as "fair odds" baseline for ROI sim
+      rows.push({
+        match_id:String(f.fixture?.id),
+        home_team:hName,away_team:aName,
+        match_date:f.fixture?.date?.slice(0,10),
+        league_round:f.league?.round,
+        pred_home:pred.home,pred_draw:pred.draw,pred_away:pred.away,
+        pred_btts:btts.yes,pred_over25:o25.over,
+        pred_btts_bool:btts.yes>=0.5,pred_over25_bool:o25.over>=0.5,
+        actual_result:actualResult,actual_goals_home:hg,actual_goals_away:ag,
+        actual_btts:actualBTTS,actual_over25:actualO25,
+        brier_score:brier,lambda_home:lambda.home,lambda_away:lambda.away,
+        confederation:conf,
+      });
+    }
+    if(missing.length) console.warn('[backtest] missing stats for:',missing.join(', '));
+    if(!rows.length) throw new Error('No results — check TEAM_STATS_2022 coverage');
+
+    // 3. Upsert to Supabase
+    if(btn) btn.textContent=`⏳ Saving ${rows.length} results to Supabase...`;
+    await sbUpsert('backtest_results',rows,'match_id');
+    console.log(`[backtest] ✓ saved ${rows.length} results`);
+
+    // 4. Update confederation calibration factors
+    const calRows=await updateCalibrationFromBacktest(rows);
+    console.log('[backtest] ✓ calibration updated');
+
+    // 5. Refresh stats display
+    await showStats();
+  }catch(e){
+    console.error('[backtest]',e.message);
+    if(body) body.insertAdjacentHTML('afterbegin',`<div style="color:var(--red);padding:12px;margin-bottom:16px;background:rgba(255,0,0,0.1);border-radius:var(--r3)">Backtest error: ${e.message}<br><span style="font-size:11px;color:var(--text3)">Make sure the backtest_results table exists in Supabase (see SQL below)</span></div>`);
+  }finally{
+    if(btn){ btn.textContent='🔄 Run WC 2022 Backtest'; btn.disabled=false; }
+  }
+}
+
 async function showStats(){
   const modal=$('stats-modal');
   const body=$('stats-body');
   modal.style.display='block';
   body.innerHTML='<div style="text-align:center;padding:40px;color:var(--text3)">Loading...</div>';
   try{
-    const[preds,results,cal]=await Promise.all([
+    const[preds,results,cal,btRaw]=await Promise.all([
       sbSelect('predictions','select=*&order=created_at.desc&limit=100'),
       sbSelect('results','select=*'),
-      sbSelect('calibration','select=*'),
+      sbSelect('calibration','select=*&order=confederation'),
+      sbSelect('backtest_results','select=*').catch(()=>[]),
     ]);
+    const bt=Array.isArray(btRaw)?btRaw:[];
     const resMap=new Map(results.map(r=>[r.match_id,r]));
     const joined=preds.map(p=>({...p,res:resMap.get(p.match_id)||null}));
     const total=preds.length;
@@ -1094,12 +1269,105 @@ async function showStats(){
           <tbody>${recentRows}</tbody>
         </table>
       </div>`:'<div style="color:var(--text3);font-size:13px">No predictions yet. Analyze a WC 2026 match to start tracking.</div>'}
+    ${bt.length?`
+    <div style="margin-top:28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <h3 style="font-size:14px;font-weight:700">🏆 WC 2022 Backtest (${bt.length} matches)</h3>
+        <span style="font-size:11px;color:var(--text3)">Using qualifying stats · Poisson/Dixon-Coles model</span>
+      </div>
+      ${(()=>{
+        const avgBrier=(bt.reduce((s,m)=>s+m.brier_score,0)/bt.length).toFixed(3);
+        const baseline='0.333';
+        const brierColor=parseFloat(avgBrier)<0.28?'var(--green)':parseFloat(avgBrier)<0.32?'var(--gold)':'var(--red)';
+        const bttsAcc=(bt.filter(m=>m.actual_btts===m.pred_btts_bool).length/bt.length*100).toFixed(1);
+        const o25Acc=(bt.filter(m=>m.actual_over25===m.pred_over25_bool).length/bt.length*100).toFixed(1);
+        const h1x2=(bt.filter(m=>{
+          const pred=m.pred_home>=m.pred_draw&&m.pred_home>=m.pred_away?'H':m.pred_draw>=m.pred_home&&m.pred_draw>=m.pred_away?'D':'A';
+          return pred===m.actual_result;
+        }).length/bt.length*100).toFixed(1);
+        const groups={};
+        bt.forEach(m=>{ const c=m.confederation||'OTHER'; (groups[c]=groups[c]||[]).push(m); });
+        const confRows=Object.entries(groups).map(([c,ms])=>{
+          const ab=(ms.reduce((s,m)=>s+m.brier_score,0)/ms.length).toFixed(3);
+          const acc=(ms.filter(m=>{const p=m.pred_home>=m.pred_draw&&m.pred_home>=m.pred_away?'H':m.pred_draw>=m.pred_home&&m.pred_draw>=m.pred_away?'D':'A';return p===m.actual_result;}).length/ms.length*100).toFixed(0);
+          const factor=ST.calibration[c]?ST.calibration[c].toFixed(3):'1.000';
+          return`<tr><td style="padding:6px 10px;font-weight:600">${c}</td><td style="padding:6px 10px">${ms.length}</td><td style="padding:6px 10px">${ab}</td><td style="padding:6px 10px">${acc}%</td><td style="padding:6px 10px;color:var(--gold)">${factor}</td></tr>`;
+        }).join('');
+        const worst=bt.slice().sort((a,b)=>b.brier_score-a.brier_score).slice(0,3);
+        const best=bt.slice().sort((a,b)=>a.brier_score-b.brier_score).slice(0,3);
+        return`
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px">
+          <div style="background:var(--bg3);border-radius:var(--r3);padding:14px;text-align:center">
+            <div style="font-size:22px;font-weight:900;color:${brierColor}">${avgBrier}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Brier Score<br><span style="color:var(--text3)">baseline: ${baseline}</span></div>
+          </div>
+          <div style="background:var(--bg3);border-radius:var(--r3);padding:14px;text-align:center">
+            <div style="font-size:22px;font-weight:900">${h1x2}%</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">1X2 Most Likely<br>Accuracy</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:var(--r3);padding:14px;text-align:center">
+            <div style="font-size:22px;font-weight:900">${bttsAcc}%</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">BTTS Accuracy<br>(Yes/No)</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:var(--r3);padding:14px;text-align:center">
+            <div style="font-size:22px;font-weight:900">${o25Acc}%</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Over 2.5<br>Accuracy</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+          <div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--green)">Best Predictions</div>
+            ${best.map(m=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">${m.home_team} ${m.actual_goals_home}-${m.actual_goals_away} ${m.away_team} <span style="color:var(--text3)">(Brier ${m.brier_score.toFixed(3)})</span></div>`).join('')}
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--red)">Hardest Matches</div>
+            ${worst.map(m=>`<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">${m.home_team} ${m.actual_goals_home}-${m.actual_goals_away} ${m.away_team} <span style="color:var(--text3)">(Brier ${m.brier_score.toFixed(3)})</span></div>`).join('')}
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px">By Confederation <span style="font-weight:400;color:var(--text3)">(λ factors now applied to 2026 predictions)</span></div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="border-bottom:1px solid var(--border)"><th style="padding:6px 10px;text-align:left">Conf</th><th style="padding:6px 10px">Matches</th><th style="padding:6px 10px">Brier</th><th style="padding:6px 10px">1X2 Acc</th><th style="padding:6px 10px;color:var(--gold)">λ Factor</th></tr></thead>
+            <tbody>${confRows}</tbody>
+          </table>
+        </div>`;
+      })()}
+    </div>`:`
+    <div style="margin-top:24px;padding:16px;background:var(--bg3);border-radius:var(--r3);border:1px dashed var(--border)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">No backtest data yet</div>
+      <div style="font-size:12px;color:var(--text3)">Click <strong>🔄 Run WC 2022 Backtest</strong> to run the model on all 59 WC 2022 matches and calibrate confederation factors. Requires the <code>backtest_results</code> table in Supabase.</div>
+    </div>`}
+    ${joined.filter(j=>!j.res).length?`
+    <div style="margin-top:24px;padding:16px;background:var(--bg3);border-radius:var(--r3);border:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">Enter WC 2026 Result <span style="font-size:11px;font-weight:400;color:var(--text3)">(API-Sports free plan can't fetch 2026 season data)</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="sb-match-sel" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:var(--r3);font-size:13px;flex:1;min-width:200px">
+          ${joined.filter(j=>!j.res).map(j=>`<option value="${j.match_id}|${j.home_team}|${j.away_team}">${j.home_team} vs ${j.away_team} (${j.match_date?.slice(0,10)||'?'})</option>`).join('')}
+        </select>
+        <input id="sb-hg" type="number" min="0" placeholder="Home" style="width:64px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:7px;border-radius:var(--r3);text-align:center">
+        <span style="color:var(--text3)">–</span>
+        <input id="sb-ag" type="number" min="0" placeholder="Away" style="width:64px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:7px;border-radius:var(--r3);text-align:center">
+        <button onclick="submitManualResult()" style="background:var(--orange);color:#fff;border:none;padding:7px 18px;border-radius:var(--r3);font-weight:700;cursor:pointer">Save</button>
+      </div>
+      <div id="sb-result-msg" style="font-size:12px;margin-top:8px;color:var(--text3)"></div>
+    </div>`:''}
     `;
   }catch(e){
     body.innerHTML=`<div style="color:var(--red);padding:20px">Error loading stats: ${e.message}</div>`;
   }
 }
 function closeStats(){ $('stats-modal').style.display='none'; }
+async function submitManualResult(){
+  const sel=$('sb-match-sel'); const msg=$('sb-result-msg');
+  const hg=$('sb-hg').value; const ag=$('sb-ag').value;
+  if(!sel||hg===''||ag===''){msg.textContent='Fill in both scores.';return;}
+  const[matchId,homeTeam,awayTeam]=sel.value.split('|');
+  msg.textContent='Saving...';
+  await saveMatchResult(matchId,homeTeam,awayTeam,hg,ag);
+  msg.style.color='var(--green)';
+  msg.textContent=`✓ ${homeTeam} ${hg}–${ag} ${awayTeam} saved. Refreshing stats...`;
+  setTimeout(()=>showStats(),1200);
+}
 
 async function fetchFixtures(type, leagueId, season){
   const base = CFG.sportsBase[type] || CFG.sportsBase.football;
@@ -2393,18 +2661,24 @@ async function fetchWCTeamByName(rawName){
   return null;
 }
 
-// Fetch last-5 matches from API-Sports for a team.
-// Returns [{opponent,gf,ga,result,comp,date}] or null on failure.
+// Fetch last-5 completed matches from API-Sports for a team.
+// Free plan: season 2026 and `last=N` are blocked. We use season=2024 (includes
+// WC 2026 qualifiers through Nov 2025) and sort to get the most recent 5 FT matches.
+// WC 2026 group stage results (season 2026) are inaccessible on the free plan.
 async function fetchTeamLast5(teamName){
   if(!CFG.sportsKey) return null;
   try{
     const team=await fetchWCTeamByName(teamName);
     if(!team?.id){ console.warn(`[form] no ID for "${teamName}"`); return null; }
-    const url=`https://v3.football.api-sports.io/fixtures?team=${team.id}&last=5`;
+    // season=2024 covers qualifiers + Nations League 2024-25 (last completed season on free plan)
+    const url=`https://v3.football.api-sports.io/fixtures?team=${team.id}&season=2024&status=FT`;
     console.log(`[form] ${teamName} (id=${team.id}) → ${url}`);
     const d=await cfetch(url,{headers:sportsHeaders()},18e5);
-    const fixtures=(d?.response||[]).filter(f=>f.goals?.home!=null&&f.goals?.away!=null);
-    if(!fixtures.length){ console.warn(`[form] no scored fixtures for "${teamName}"`); return null; }
+    const all=(d?.response||[]).filter(f=>f.goals?.home!=null&&f.goals?.away!=null);
+    if(!all.length){ console.warn(`[form] no scored fixtures for "${teamName}" in season 2024`); return null; }
+    // Sort descending by date, take 5 most recent
+    const sorted=[...all].sort((a,b)=>new Date(b.fixture.date)-new Date(a.fixture.date));
+    const fixtures=sorted.slice(0,5);
     const matches=fixtures.map(f=>{
       const isHome=f.teams?.home?.id===team.id;
       const gf=isHome?(f.goals.home??0):(f.goals.away??0);
@@ -2417,7 +2691,7 @@ async function fetchTeamLast5(teamName){
         date:f.fixture?.date?.slice(0,10)||'',
       };
     });
-    console.log(`[form] ✓ ${teamName}:`,matches.map(m=>`${m.result} vs ${m.opponent} ${m.gf}-${m.ga} (${m.comp})`).join(' | '));
+    console.log(`[form] ✓ ${teamName} (season 2024, last ${matches.length}):`,matches.map(m=>`${m.result} vs ${m.opponent} ${m.gf}-${m.ga}`).join(' | '));
     return matches;
   }catch(e){ console.warn(`[form] error for "${teamName}":`,e.message); return null; }
 }
