@@ -10,16 +10,16 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#050508;
+  --bg:#0a0e27;
   --bg2:rgba(255,255,255,0.04);--bg3:rgba(255,255,255,0.07);--bg4:rgba(255,255,255,0.10);
   --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
-  --blue:#3B82F6;--purple:#8B5CF6;--orange:#F97316;--orange2:#FB923C;
-  --green:#10B981;--red:#EF4444;--gold:#F59E0B;
+  --blue:#1a56db;--purple:#8B5CF6;--orange:#F97316;--orange2:#FB923C;
+  --green:#059669;--red:#dc2626;--gold:#F59E0B;--teal:#0891b2;
   --text:#FFFFFF;--text2:#94A3B8;--text3:#475569;
   --r:16px;--r2:12px;--r3:8px;
   --fh:'Geist',system-ui,sans-serif;--fb:'Inter',system-ui,sans-serif;
 }
-body{background:var(--bg);background-image:radial-gradient(ellipse at 15% 40%,rgba(59,130,246,0.08) 0%,transparent 55%),radial-gradient(ellipse at 85% 15%,rgba(139,92,246,0.06) 0%,transparent 50%),radial-gradient(ellipse at 60% 90%,rgba(16,185,129,0.04) 0%,transparent 45%);background-attachment:fixed;color:var(--text);font-family:var(--fb);min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);background-image:radial-gradient(ellipse at 20% 30%,rgba(26,86,219,0.14) 0%,transparent 55%),radial-gradient(ellipse at 80% 10%,rgba(8,145,178,0.10) 0%,transparent 50%),radial-gradient(ellipse at 50% 90%,rgba(5,150,105,0.06) 0%,transparent 45%);background-attachment:fixed;color:var(--text);font-family:var(--fb);min-height:100vh;overflow-x:hidden}
 a{color:inherit;text-decoration:none}
 button{cursor:pointer;font-family:var(--fb)}
 input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
@@ -65,30 +65,50 @@ input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
 .section-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
 .section-header h2{font-family:var(--fh);font-size:20px;font-weight:800}
 .league-bar{display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap}
-.league-select{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--text);padding:10px 16px;border-radius:var(--r2);font-size:14px;font-weight:500;min-width:220px;outline:none;cursor:pointer;transition:border-color .2s;backdrop-filter:blur(8px)}
-.league-select:hover,.league-select:focus{border-color:rgba(59,130,246,0.5)}
+.league-select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:10px 16px;border-radius:var(--r2);font-size:14px;font-weight:500;min-width:220px;outline:none;cursor:pointer;transition:border-color .2s}
+.league-select:hover,.league-select:focus{border-color:rgba(26,86,219,0.6)}
 .refresh-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--text2);padding:10px 16px;border-radius:var(--r2);font-size:13px;font-weight:500;transition:all .2s;display:flex;align-items:center;gap:6px}
-.refresh-btn:hover{border-color:rgba(59,130,246,0.4);color:var(--text)}
-.match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
-.match-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:var(--r);padding:20px;cursor:pointer;transition:all .25s cubic-bezier(0.16,1,0.3,1);position:relative;overflow:hidden;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
-.match-card:hover{border-color:rgba(59,130,246,0.3);transform:translateY(-3px);box-shadow:0 0 40px rgba(59,130,246,0.12),0 20px 40px rgba(0,0,0,0.3)}
-.match-card.selected{border-color:rgba(59,130,246,0.45);background:rgba(59,130,246,0.08);box-shadow:0 0 40px rgba(59,130,246,0.15)}
-.match-card .mc-league{font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
-.match-card .mc-teams{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
-.match-card .mc-team{flex:1;text-align:center}
-.mc-team-name{font-family:var(--fh);font-size:15px;font-weight:800;line-height:1.2}
-.mc-team-badge{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 8px;border:1px solid rgba(255,255,255,0.1);overflow:hidden}
-.match-card .mc-vs{font-size:11px;font-weight:700;color:var(--text3);padding:6px 10px;background:rgba(255,255,255,0.06);border-radius:var(--r3);border:1px solid rgba(255,255,255,0.08)}
-.match-card .mc-time{font-size:12px;color:var(--text2);text-align:center;margin-top:4px}
-.match-card .mc-odds{display:flex;gap:6px;margin-top:14px;justify-content:center}
-.mc-odd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r3);padding:6px 10px;text-align:center;flex:1;transition:all .15s}
-.mc-odd:hover{background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.3)}
-.mc-odd .ol{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
-.mc-odd .ov{font-size:16px;font-weight:900;color:var(--text);font-family:monospace}
-.match-card .mc-live{position:absolute;top:14px;right:14px;display:flex;align-items:center;gap:5px;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(239,68,68,0.9)}
-.match-card .mc-live::before{content:'';width:6px;height:6px;border-radius:50%;background:#fff;animation:livePulse 1.5s infinite;flex-shrink:0}
+.refresh-btn:hover{border-color:rgba(26,86,219,0.5);color:var(--text)}
+.match-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+
+/* MATCH CARD — Winamax style */
+.match-card{background:#0f1535;border:none;border-radius:16px;cursor:pointer;transition:all .25s cubic-bezier(0.16,1,0.3,1);position:relative;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.5)}
+.match-card:hover{transform:translateY(-4px);box-shadow:0 16px 48px rgba(0,0,0,0.65)}
+.match-card.selected{box-shadow:0 0 0 2px #1a56db,0 16px 40px rgba(0,0,0,0.5)}
+/* Gradient header band */
+.mc-header{background:linear-gradient(90deg,#1a56db 0%,#0891b2 55%,#059669 100%);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;min-height:34px}
+.mc-header-comp{font-size:10px;font-weight:800;color:rgba(255,255,255,0.95);text-transform:uppercase;letter-spacing:0.8px}
+.mc-header-stage{font-size:10px;font-weight:600;color:rgba(255,255,255,0.78)}
+/* Stadium gradient body */
+.mc-body{background:linear-gradient(180deg,#0d1b4b 0%,#0f1535 55%,#080e20 100%);padding:18px 16px 14px}
+/* Teams */
+.match-card .mc-teams{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:16px}
+.match-card .mc-team{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:9px}
+.mc-flag-circle{width:56px;height:56px;border-radius:50%;overflow:hidden;border:2.5px solid rgba(255,255,255,0.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#1e3a5f}
+.mc-team-name{font-size:12px;font-weight:800;color:#fff;font-family:system-ui,sans-serif;line-height:1.2;max-width:84px;word-break:break-word}
+/* VS / time center column */
+.mc-vs-block{display:flex;flex-direction:column;align-items:center;gap:3px;padding:0 4px;flex-shrink:0}
+.mc-vs-label{font-size:9px;font-weight:700;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1.2px}
+.match-card .mc-time{font-size:17px;font-weight:900;color:#ffffff;font-family:system-ui,sans-serif;letter-spacing:-0.5px;white-space:nowrap}
+/* LIVE badge */
+.match-card .mc-live{position:absolute;top:42px;right:10px;display:flex;align-items:center;gap:4px;color:#fff;font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(220,38,38,0.92);z-index:2;letter-spacing:0.5px}
+.match-card .mc-live::before{content:'';width:5px;height:5px;border-radius:50%;background:#fff;animation:livePulse 1.5s infinite;flex-shrink:0}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.35;transform:scale(0.7)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+/* Odds: white buttons, red values */
+.match-card .mc-odds{display:flex;gap:7px}
+.mc-odd{background:#ffffff;border-radius:10px;padding:8px 4px;text-align:center;flex:1;cursor:pointer;transition:all .15s;border:none}
+.mc-odd:hover{background:#eff6ff;transform:scale(1.04)}
+.mc-odd .ol{font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.2px;margin-bottom:2px}
+.mc-odd .ov{font-size:15px;font-weight:900;color:#dc2626;font-family:system-ui,sans-serif}
+/* Probability bar */
+.mc-prob-bar-row{display:flex;height:4px;border-radius:2px;overflow:hidden;margin-top:10px;gap:1px}
+.mc-prob-h{border-radius:2px 0 0 2px;background:#1a56db;transition:width .6s}
+.mc-prob-d{background:#0891b2;transition:width .6s}
+.mc-prob-a{border-radius:0 2px 2px 0;background:#059669;transition:width .6s}
+.mc-prob-pcts{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.42)}
+/* legacy alias kept for analysis page */
+.mc-team-badge{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 8px;border:1px solid rgba(255,255,255,0.1);overflow:hidden}
 
 .analyze-bar{margin-top:24px;text-align:center}
 #analyze-btn{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;border:none;padding:16px 52px;border-radius:var(--r2);font-family:var(--fh);font-size:16px;font-weight:800;letter-spacing:1px;transition:all .25s cubic-bezier(0.16,1,0.3,1);box-shadow:0 4px 24px rgba(59,130,246,0.35);text-transform:uppercase}
@@ -108,7 +128,9 @@ input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
 .match-header-card{background:linear-gradient(135deg,rgba(59,130,246,0.07) 0%,rgba(5,5,8,0.8) 50%,rgba(139,92,246,0.07) 100%);border:1px solid rgba(59,130,246,0.2)}
 .match-header-inner{padding:36px 28px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px}
 .mh-team{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
-.mh-badge{width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:40px;border:2px solid rgba(255,255,255,0.1);box-shadow:0 0 24px rgba(59,130,246,0.15);overflow:hidden}
+.mh-badge{width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:40px;border:2.5px solid rgba(255,255,255,0.2);box-shadow:0 0 28px rgba(26,86,219,0.2);overflow:hidden;flex-shrink:0}
+.mh-badge img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.mh-badge>div{width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:14px;font-weight:700;color:#94a3b8}
 .mh-name{font-family:var(--fh);font-size:22px;font-weight:800;letter-spacing:-0.5px}
 .mh-center{text-align:center}
 .mh-vs{font-family:var(--fh);font-size:13px;font-weight:700;color:var(--text3);background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r2);padding:8px 16px}
@@ -283,16 +305,19 @@ input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
 .chip.gray{background:rgba(148,163,184,0.1);border-color:rgba(148,163,184,0.2);color:var(--text2)}
 
 /* WORLD CUP HERO */
-.wc-hero-card{background:linear-gradient(135deg,rgba(59,130,246,0.08) 0%,rgba(5,5,8,0.7) 50%,rgba(139,92,246,0.08) 100%);border:1px solid rgba(59,130,246,0.2);border-radius:var(--r);padding:56px 36px;text-align:center;cursor:pointer;position:relative;overflow:hidden;transition:all .3s cubic-bezier(0.16,1,0.3,1);margin-bottom:32px}
-.wc-hero-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(59,130,246,0.2) 0%,transparent 60%),radial-gradient(ellipse at 100% 100%,rgba(139,92,246,0.12) 0%,transparent 50%);pointer-events:none}
-.wc-hero-card:hover{border-color:rgba(59,130,246,0.45);transform:translateY(-4px);box-shadow:0 0 60px rgba(59,130,246,0.2),0 24px 48px rgba(0,0,0,0.4)}
-.wc-trophy{font-size:80px;display:block;margin-bottom:18px;filter:drop-shadow(0 4px 20px rgba(59,130,246,0.5))}
-.wc-title{font-family:var(--fh);font-size:clamp(28px,6vw,58px);font-weight:900;letter-spacing:-2px;line-height:1;background:linear-gradient(135deg,#FFFFFF 0%,#94A3B8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px}
-.wc-subtitle{font-size:15px;color:var(--text2);margin-bottom:24px;letter-spacing:.3px}
-.wc-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
-.wc-btn{display:inline-block;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-family:var(--fh);font-size:16px;font-weight:800;padding:16px 56px;border-radius:var(--r2);border:none;cursor:pointer;transition:all .25s cubic-bezier(0.16,1,0.3,1);letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 32px rgba(59,130,246,0.4);animation:btnGlow 2.5s ease-in-out infinite}
-.wc-btn:hover{transform:translateY(-2px);box-shadow:0 8px 48px rgba(59,130,246,0.6)}
-@keyframes btnGlow{0%,100%{box-shadow:0 4px 32px rgba(59,130,246,0.4)}50%{box-shadow:0 4px 48px rgba(139,92,246,0.55)}}
+.wc-hero-card{position:relative;border-radius:var(--r);padding:3px;cursor:pointer;margin-bottom:32px;transition:transform .3s cubic-bezier(0.16,1,0.3,1),box-shadow .3s}
+.wc-hero-card::before{content:'';position:absolute;inset:0;border-radius:var(--r);background:linear-gradient(135deg,#22c55e 0%,#0891b2 25%,#06b6d4 45%,#1a56db 65%,#8b5cf6 82%,#22c55e 100%);background-size:300% 300%;animation:rainbowBorder 5s linear infinite;z-index:0}
+@keyframes rainbowBorder{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.wc-hero-card:hover{transform:translateY(-5px);box-shadow:0 24px 60px rgba(0,0,0,0.55)}
+.wc-hero-inner{position:relative;z-index:1;background:linear-gradient(135deg,#0d1b4b 0%,#0a1a38 50%,#061a10 100%);border-radius:calc(var(--r) - 3px);padding:56px 36px;text-align:center;overflow:hidden}
+.wc-hero-inner::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(8,145,178,0.18) 0%,transparent 60%);pointer-events:none}
+.wc-trophy{font-size:80px;display:block;margin-bottom:18px;filter:drop-shadow(0 4px 20px rgba(26,86,219,0.6));position:relative;z-index:1}
+.wc-title{font-family:var(--fh);font-size:clamp(28px,6vw,58px);font-weight:900;letter-spacing:-2px;line-height:1;background:linear-gradient(135deg,#FFFFFF 0%,#94A3B8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px;position:relative;z-index:1}
+.wc-subtitle{font-size:15px;color:var(--text2);margin-bottom:24px;letter-spacing:.3px;position:relative;z-index:1}
+.wc-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:32px;position:relative;z-index:1}
+.wc-btn{display:inline-block;background:linear-gradient(90deg,#1a56db 0%,#0891b2 50%,#059669 100%);color:#fff;font-family:var(--fh);font-size:16px;font-weight:800;padding:16px 56px;border-radius:var(--r2);border:none;cursor:pointer;transition:all .25s cubic-bezier(0.16,1,0.3,1);letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 32px rgba(26,86,219,0.45);position:relative;z-index:1;animation:btnGlow 2.5s ease-in-out infinite}
+.wc-btn:hover{transform:translateY(-2px);box-shadow:0 8px 48px rgba(8,145,178,0.6)}
+@keyframes btnGlow{0%,100%{box-shadow:0 4px 32px rgba(26,86,219,0.4)}50%{box-shadow:0 4px 48px rgba(8,145,178,0.6)}}
 .chip.gold{background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.4);color:var(--gold)}
 
 /* MINI SPORT CARDS (homepage secondary row) */
@@ -533,32 +558,22 @@ function getConfederation(name){
 }
 
 const FLAG_CODES = {
-  // UEFA
-  'Germany':'de','France':'fr','Spain':'es','England':'gb-eng','Portugal':'pt',
-  'Netherlands':'nl','Belgium':'be','Italy':'it','Croatia':'hr','Serbia':'rs',
-  'Denmark':'dk','Switzerland':'ch','Austria':'at','Ukraine':'ua','Slovakia':'sk',
-  'Turkey':'tr','Poland':'pl','Czechia':'cz','Scotland':'gb-sct','Romania':'ro',
-  'Hungary':'hu','Slovenia':'si','Albania':'al','Georgia':'ge','Norway':'no',
-  'Sweden':'se',
-  // CONMEBOL
-  'Argentina':'ar','Brazil':'br','Colombia':'co','Uruguay':'uy','Ecuador':'ec',
-  'Chile':'cl','Venezuela':'ve','Bolivia':'bo','Paraguay':'py','Peru':'pe',
-  // CONCACAF
-  'Mexico':'mx','United States':'us','USA':'us','Canada':'ca',
-  'Panama':'pa','Costa Rica':'cr','Honduras':'hn','Jamaica':'jm',
-  'Haiti':'ht','Trinidad and Tobago':'tt',
-  // AFC
-  'Japan':'jp','South Korea':'kr','Australia':'au','Saudi Arabia':'sa',
-  'Iran':'ir','Qatar':'qa','Iraq':'iq','Uzbekistan':'uz','Jordan':'jo',
-  'South Korea':'kr','New Zealand':'nz',
-  // CAF
-  'Morocco':'ma','Senegal':'sn','Ivory Coast':'ci','Cameroon':'cm','Ghana':'gh',
-  'Nigeria':'ng','Mali':'ml','Algeria':'dz','Tunisia':'tn','Egypt':'eg',
-  'South Africa':'za','DR Congo':'cd','Cape Verde':'cv',
-  // OFC/other
-  'New Zealand':'nz',
-  // Host nations
-  'Bosnia and Herzegovina':'ba',
+  'Spain':'es','France':'fr','Germany':'de','Brazil':'br','Argentina':'ar',
+  'England':'gb-eng','Portugal':'pt','Netherlands':'nl','Belgium':'be',
+  'Croatia':'hr','Morocco':'ma','Senegal':'sn','Japan':'jp','South Korea':'kr',
+  'Australia':'au','United States':'us','USA':'us','Mexico':'mx','Canada':'ca',
+  'Uruguay':'uy','Colombia':'co','Ecuador':'ec','Switzerland':'ch','Denmark':'dk',
+  'Austria':'at','Serbia':'rs','Poland':'pl','Turkey':'tr','Sweden':'se',
+  'Norway':'no','Scotland':'gb-sct','Iran':'ir','Saudi Arabia':'sa','Qatar':'qa',
+  'Iraq':'iq','Jordan':'jo','Nigeria':'ng','Ghana':'gh','Egypt':'eg',
+  'Algeria':'dz','Tunisia':'tn','Cape Verde':'cv','Panama':'pa','New Zealand':'nz',
+  'Haiti':'ht','Paraguay':'py','Bosnia and Herzegovina':'ba','Czechia':'cz',
+  'Ukraine':'ua','South Africa':'za','Ivory Coast':'ci','Mali':'ml',
+  // extras
+  'Italy':'it','Slovakia':'sk','Romania':'ro','Hungary':'hu','Slovenia':'si',
+  'Albania':'al','Georgia':'ge','Chile':'cl','Venezuela':'ve','Bolivia':'bo',
+  'Peru':'pe','Costa Rica':'cr','Honduras':'hn','Jamaica':'jm',
+  'Trinidad and Tobago':'tt','Uzbekistan':'uz','Cameroon':'cm','DR Congo':'cd',
 };
 function getFlagCode(teamName){
   if(!teamName) return null;
@@ -567,11 +582,16 @@ function getFlagCode(teamName){
   const entry=Object.entries(FLAG_CODES).find(([k])=>lower.includes(k.toLowerCase())||k.toLowerCase().includes(lower));
   return entry?entry[1]:null;
 }
-function getFlagImg(teamName, size='w40', style='width:40px;height:30px;object-fit:cover;border-radius:4px'){
+function getFlag(name=''){
+  const code=FLAG_CODES[name]||getFlagCode(name);
+  if(!code) return `<div style="width:56px;height:56px;border-radius:50%;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#94a3b8">${(name||'?').slice(0,3).toUpperCase()}</div>`;
+  return `<img src="https://flagcdn.com/w80/${code}.png" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2.5px solid rgba(255,255,255,0.2)" alt="${name}" onerror="this.outerHTML='<div style=&quot;width:56px;height:56px;border-radius:50%;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#94a3b8&quot;>${(name||'?').slice(0,3).toUpperCase()}</div>'">`;
+}
+function getFlagImg(teamName, size='w80', style='width:56px;height:56px;border-radius:50%;object-fit:cover'){
   const code=getFlagCode(teamName);
   if(!code) return null;
-  const initials=teamInitials(teamName);
-  return `<img src="https://flagcdn.com/${size}/${code}.png" style="${style}" alt="${teamName}" onerror="this.style.display='none';this.nextSibling&&(this.nextSibling.style.display='flex')"><span style="display:none;align-items:center;justify-content:center;font-size:14px;font-weight:700">${initials}</span>`;
+  const initials=(teamName||'?').slice(0,3).toUpperCase();
+  return `<img src="https://flagcdn.com/${size}/${code}.png" style="${style}" alt="${teamName}" onerror="this.style.display='none';this.nextSibling&&(this.nextSibling.style.display='flex')"><span style="display:none;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#94a3b8">${initials}</span>`;
 }
 
 // Pre-tournament qualifying stats for all 32 WC 2022 teams.
@@ -716,10 +736,6 @@ const TEAM_ALIASES = {
   'United States':'USA','South Korea':'Korea Republic','Ivory Coast':'Côte d\'Ivoire',
   'Trinidad and Tobago':'Trinidad And Tobago','DR Congo':'DR Congo',
 };
-
-function getFlag(name=''){
-  return FLAGS[name] || FLAGS[TEAM_ALIASES[name]] || '';
-}
 
 function getWCStage(dateStr){
   const d=new Date(dateStr); const m=d.getMonth()+1; const day=d.getDate();
@@ -3794,17 +3810,24 @@ function renderHome(){
   const otherSportEntries=Object.entries(SPORTS).filter(([k])=>k!=='football');
   inner.innerHTML=`
     <div class="wc-hero-card" onclick="selectWC()">
-      <div style="position:relative;z-index:1">
+      <div class="wc-hero-inner">
         <span class="wc-trophy">🏆</span>
         <div class="wc-title">FIFA WORLD CUP 2026</div>
-        <div class="wc-subtitle">🇺🇸 USA &nbsp;·&nbsp; 🇨🇦 Canada &nbsp;·&nbsp; 🇲🇽 Mexico &nbsp;·&nbsp; 48 Nations</div>
-        <div class="wc-chips">
+        <div class="wc-subtitle" style="display:flex;align-items:center;justify-content:center;gap:10px">
+          <img src="https://flagcdn.com/w40/us.png" style="width:28px;height:21px;object-fit:cover;border-radius:3px;vertical-align:middle" alt="USA">
+          USA &nbsp;·&nbsp;
+          <img src="https://flagcdn.com/w40/ca.png" style="width:28px;height:21px;object-fit:cover;border-radius:3px;vertical-align:middle" alt="Canada">
+          Canada &nbsp;·&nbsp;
+          <img src="https://flagcdn.com/w40/mx.png" style="width:28px;height:21px;object-fit:cover;border-radius:3px;vertical-align:middle" alt="Mexico">
+          Mexico &nbsp;·&nbsp; 48 Nations
+        </div>
+        <div class="wc-chips" style="margin-top:20px">
           <span class="chip gold">Group Stage</span>
           <span class="chip green">Live Odds</span>
           <span class="chip orange">Dixon-Coles</span>
           <span class="chip blue">AI Scout</span>
         </div>
-        <button class="wc-btn">⚡ ANALYZE MATCHES →</button>
+        <button class="wc-btn">ANALYZE MATCHES</button>
       </div>
     </div>
     <div>
@@ -3885,30 +3908,53 @@ function renderMatchCards(events){
     const now=Date.now();
     const isLive=d.getTime()<now&&now-d.getTime()<9e6;
     const odds=getQuickOdds(ev);
-    const hFlag=getFlag(ev.home_team);
-    const aFlag=getFlag(ev.away_team);
     const stage=wc?getWCStage(ev.commence_time):'';
+    const compName=wc?'FIFA World Cup 2026':((ST.sport||'').toUpperCase()||'Football');
+    // probability bar
+    let probBar='', probPcts='';
+    if(odds){
+      const arr=odds.draw!==null?[odds.home,odds.draw,odds.away]:[odds.home,odds.away];
+      const nv=novig(arr);
+      if(odds.draw!==null){
+        const [ph,pd,pa]=nv.map(p=>Math.round(p*100));
+        probBar=`<div class="mc-prob-h" style="width:${ph}%"></div><div class="mc-prob-d" style="width:${pd}%"></div><div class="mc-prob-a" style="width:${pa}%"></div>`;
+        probPcts=`<span>${ph}%</span><span>${pd}%</span><span>${pa}%</span>`;
+      } else {
+        const [ph,pa]=nv.map(p=>Math.round(p*100));
+        probBar=`<div class="mc-prob-h" style="width:${ph}%"></div><div class="mc-prob-a" style="width:${pa}%"></div>`;
+        probPcts=`<span>${ph}%</span><span>${pa}%</span>`;
+      }
+    }
     return `
     <div class="match-card ${ST.match?.id===ev.id?'selected':''}" id="mc-${ev.id}" onclick="selectMatch('${ev.id}')">
       ${isLive?'<div class="mc-live">LIVE</div>':''}
-      <div class="mc-league">${wc?`<span class="stage-chip">${stage}</span> `:''}${formatDate(d)}</div>
-      <div class="mc-teams">
-        <div class="mc-team">
-          <div class="mc-team-badge">${getFlagImg(ev.home_team,'w40')||`<span style="font-size:14px;font-weight:700">${teamInitials(ev.home_team)}</span>`}</div>
-          <div class="mc-team-name">${ev.home_team}</div>
-        </div>
-        <div class="mc-vs">VS</div>
-        <div class="mc-team">
-          <div class="mc-team-badge">${getFlagImg(ev.away_team,'w40')||`<span style="font-size:14px;font-weight:700">${teamInitials(ev.away_team)}</span>`}</div>
-          <div class="mc-team-name">${ev.away_team}</div>
-        </div>
+      <div class="mc-header">
+        <span class="mc-header-comp">${compName}</span>
+        <span class="mc-header-stage">${stage||formatDate(d)}</span>
       </div>
-      <div class="mc-time">${formatTime(d)}</div>
-      ${odds?`<div class="mc-odds">
-        <div class="mc-odd"><div class="ol">1</div><div class="ov">${fmtOdds(odds.home)}</div></div>
-        ${odds.draw!==null?`<div class="mc-odd"><div class="ol">X</div><div class="ov">${fmtOdds(odds.draw)}</div></div>`:''}
-        <div class="mc-odd"><div class="ol">2</div><div class="ov">${fmtOdds(odds.away)}</div></div>
-      </div>`:''}
+      <div class="mc-body">
+        <div class="mc-teams">
+          <div class="mc-team">
+            <div class="mc-flag-circle">${getFlag(ev.home_team)}</div>
+            <div class="mc-team-name">${ev.home_team}</div>
+          </div>
+          <div class="mc-vs-block">
+            <div class="mc-vs-label">VS</div>
+            <div class="mc-time">${formatTime(d)}</div>
+          </div>
+          <div class="mc-team">
+            <div class="mc-flag-circle">${getFlag(ev.away_team)}</div>
+            <div class="mc-team-name">${ev.away_team}</div>
+          </div>
+        </div>
+        ${odds?`<div class="mc-odds">
+          <div class="mc-odd"><div class="ol">1</div><div class="ov">${fmtOdds(odds.home)}</div></div>
+          ${odds.draw!==null?`<div class="mc-odd"><div class="ol">X</div><div class="ov">${fmtOdds(odds.draw)}</div></div>`:''}
+          <div class="mc-odd"><div class="ol">2</div><div class="ov">${fmtOdds(odds.away)}</div></div>
+        </div>
+        <div class="mc-prob-bar-row">${probBar}</div>
+        <div class="mc-prob-pcts">${probPcts}</div>`:''}
+      </div>
     </div>`;
   }).join('');
 }
@@ -4168,11 +4214,13 @@ function renderFullAnalysis({oddsData,matrix,lambda,markets,topBets,aiText,leagu
 
   root.innerHTML=`
     <!-- Match Header -->
-    <div class="card match-header-card" style="margin-bottom:20px">
-      ${wc?`<div style="text-align:center;padding:10px 20px 0;"><span class="stage-chip">🌍 FIFA World Cup 2026 · ${stage}</span></div>`:''}
-      <div class="match-header-inner">
+    <div class="card match-header-card" style="margin-bottom:20px;background:#0f1535;border:none">
+      <div style="background:linear-gradient(90deg,#1a56db 0%,#0891b2 55%,#059669 100%);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:8px">
+        <span style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.95);text-transform:uppercase;letter-spacing:1px">${wc?'FIFA World Cup 2026 · '+stage:(sport.icon+' '+league.name)}</span>
+      </div>
+      <div class="match-header-inner" style="background:linear-gradient(180deg,#0d1b4b 0%,#0f1535 60%,#080e20 100%)">
         <div class="mh-team">
-          <div class="mh-badge" style="${getFlagCode(ev.home_team)?'background:transparent':'background:var(--bg4)'}">${getFlagImg(ev.home_team,'w80','width:80px;height:60px;object-fit:cover;border-radius:8px')||`<span style="font-size:24px;font-weight:700">${teamInitials(ev.home_team)}</span>`}</div>
+          <div class="mh-badge" style="background:transparent;border-color:rgba(255,255,255,0.2)">${getFlag(ev.home_team)}</div>
           <div class="mh-name">${ev.home_team}</div>
           ${!wc?`<div style="margin-top:4px"><span class="chip orange">HOME</span></div>`:''}
         </div>
@@ -4180,11 +4228,10 @@ function renderFullAnalysis({oddsData,matrix,lambda,markets,topBets,aiText,leagu
           <div class="mh-vs">VS</div>
           <div class="mh-date">${d.toLocaleDateString('en',{weekday:'long',month:'long',day:'numeric'})}</div>
           <div class="mh-date">${d.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false})}</div>
-          <div class="mh-competition">${wc?'🏆':''}${sport.icon} ${league.name}</div>
-          ${wc?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Neutral Venue · No home advantage</div>`:''}
+          ${wc?`<div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:6px">Neutral Venue · No home advantage</div>`:''}
         </div>
         <div class="mh-team">
-          <div class="mh-badge" style="${getFlagCode(ev.away_team)?'background:transparent':'background:var(--bg4)'}">${getFlagImg(ev.away_team,'w80','width:80px;height:60px;object-fit:cover;border-radius:8px')||`<span style="font-size:24px;font-weight:700">${teamInitials(ev.away_team)}</span>`}</div>
+          <div class="mh-badge" style="background:transparent;border-color:rgba(255,255,255,0.2)">${getFlag(ev.away_team)}</div>
           <div class="mh-name">${ev.away_team}</div>
           ${!wc?`<div style="margin-top:4px"><span class="chip blue">AWAY</span></div>`:''}
         </div>
