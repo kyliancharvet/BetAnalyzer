@@ -77,7 +77,7 @@ input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
 .match-card .mc-teams{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
 .match-card .mc-team{flex:1;text-align:center}
 .mc-team-name{font-family:var(--fh);font-size:15px;font-weight:800;line-height:1.2}
-.mc-team-badge{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 8px;border:1px solid rgba(255,255,255,0.1)}
+.mc-team-badge{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 8px;border:1px solid rgba(255,255,255,0.1);overflow:hidden}
 .match-card .mc-vs{font-size:11px;font-weight:700;color:var(--text3);padding:6px 10px;background:rgba(255,255,255,0.06);border-radius:var(--r3);border:1px solid rgba(255,255,255,0.08)}
 .match-card .mc-time{font-size:12px;color:var(--text2);text-align:center;margin-top:4px}
 .match-card .mc-odds{display:flex;gap:6px;margin-top:14px;justify-content:center}
@@ -108,7 +108,7 @@ input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
 .match-header-card{background:linear-gradient(135deg,rgba(59,130,246,0.07) 0%,rgba(5,5,8,0.8) 50%,rgba(139,92,246,0.07) 100%);border:1px solid rgba(59,130,246,0.2)}
 .match-header-inner{padding:36px 28px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px}
 .mh-team{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
-.mh-badge{width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:40px;border:2px solid rgba(255,255,255,0.1);box-shadow:0 0 24px rgba(59,130,246,0.15)}
+.mh-badge{width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:40px;border:2px solid rgba(255,255,255,0.1);box-shadow:0 0 24px rgba(59,130,246,0.15);overflow:hidden}
 .mh-name{font-family:var(--fh);font-size:22px;font-weight:800;letter-spacing:-0.5px}
 .mh-center{text-align:center}
 .mh-vs{font-family:var(--fh);font-size:13px;font-weight:700;color:var(--text3);background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r2);padding:8px 16px}
@@ -530,6 +530,48 @@ const CONFEDERATION_MAP = {
 };
 function getConfederation(name){
   return CONFEDERATION_MAP[name]||Object.entries(CONFEDERATION_MAP).find(([k])=>name?.toLowerCase().includes(k.toLowerCase()))?.[1]||'OTHER';
+}
+
+const FLAG_CODES = {
+  // UEFA
+  'Germany':'de','France':'fr','Spain':'es','England':'gb-eng','Portugal':'pt',
+  'Netherlands':'nl','Belgium':'be','Italy':'it','Croatia':'hr','Serbia':'rs',
+  'Denmark':'dk','Switzerland':'ch','Austria':'at','Ukraine':'ua','Slovakia':'sk',
+  'Turkey':'tr','Poland':'pl','Czechia':'cz','Scotland':'gb-sct','Romania':'ro',
+  'Hungary':'hu','Slovenia':'si','Albania':'al','Georgia':'ge','Norway':'no',
+  'Sweden':'se',
+  // CONMEBOL
+  'Argentina':'ar','Brazil':'br','Colombia':'co','Uruguay':'uy','Ecuador':'ec',
+  'Chile':'cl','Venezuela':'ve','Bolivia':'bo','Paraguay':'py','Peru':'pe',
+  // CONCACAF
+  'Mexico':'mx','United States':'us','USA':'us','Canada':'ca',
+  'Panama':'pa','Costa Rica':'cr','Honduras':'hn','Jamaica':'jm',
+  'Haiti':'ht','Trinidad and Tobago':'tt',
+  // AFC
+  'Japan':'jp','South Korea':'kr','Australia':'au','Saudi Arabia':'sa',
+  'Iran':'ir','Qatar':'qa','Iraq':'iq','Uzbekistan':'uz','Jordan':'jo',
+  'South Korea':'kr','New Zealand':'nz',
+  // CAF
+  'Morocco':'ma','Senegal':'sn','Ivory Coast':'ci','Cameroon':'cm','Ghana':'gh',
+  'Nigeria':'ng','Mali':'ml','Algeria':'dz','Tunisia':'tn','Egypt':'eg',
+  'South Africa':'za','DR Congo':'cd','Cape Verde':'cv',
+  // OFC/other
+  'New Zealand':'nz',
+  // Host nations
+  'Bosnia and Herzegovina':'ba',
+};
+function getFlagCode(teamName){
+  if(!teamName) return null;
+  if(FLAG_CODES[teamName]) return FLAG_CODES[teamName];
+  const lower=teamName.toLowerCase();
+  const entry=Object.entries(FLAG_CODES).find(([k])=>lower.includes(k.toLowerCase())||k.toLowerCase().includes(lower));
+  return entry?entry[1]:null;
+}
+function getFlagImg(teamName, size='w40', style='width:40px;height:30px;object-fit:cover;border-radius:4px'){
+  const code=getFlagCode(teamName);
+  if(!code) return null;
+  const initials=teamInitials(teamName);
+  return `<img src="https://flagcdn.com/${size}/${code}.png" style="${style}" alt="${teamName}" onerror="this.style.display='none';this.nextSibling&&(this.nextSibling.style.display='flex')"><span style="display:none;align-items:center;justify-content:center;font-size:14px;font-weight:700">${initials}</span>`;
 }
 
 // Pre-tournament qualifying stats for all 32 WC 2022 teams.
@@ -3852,12 +3894,12 @@ function renderMatchCards(events){
       <div class="mc-league">${wc?`<span class="stage-chip">${stage}</span> `:''}${formatDate(d)}</div>
       <div class="mc-teams">
         <div class="mc-team">
-          <div class="mc-team-badge" style="font-size:${hFlag?'26px':'14px'}">${hFlag||teamInitials(ev.home_team)}</div>
+          <div class="mc-team-badge">${getFlagImg(ev.home_team,'w40')||`<span style="font-size:14px;font-weight:700">${teamInitials(ev.home_team)}</span>`}</div>
           <div class="mc-team-name">${ev.home_team}</div>
         </div>
         <div class="mc-vs">VS</div>
         <div class="mc-team">
-          <div class="mc-team-badge" style="font-size:${aFlag?'26px':'14px'}">${aFlag||teamInitials(ev.away_team)}</div>
+          <div class="mc-team-badge">${getFlagImg(ev.away_team,'w40')||`<span style="font-size:14px;font-weight:700">${teamInitials(ev.away_team)}</span>`}</div>
           <div class="mc-team-name">${ev.away_team}</div>
         </div>
       </div>
@@ -4130,7 +4172,7 @@ function renderFullAnalysis({oddsData,matrix,lambda,markets,topBets,aiText,leagu
       ${wc?`<div style="text-align:center;padding:10px 20px 0;"><span class="stage-chip">🌍 FIFA World Cup 2026 · ${stage}</span></div>`:''}
       <div class="match-header-inner">
         <div class="mh-team">
-          <div class="mh-badge" style="font-size:${hFlag?'42px':'24px'};background:${hFlag?'transparent':'var(--bg4)'}">${hFlag||teamInitials(ev.home_team)}</div>
+          <div class="mh-badge" style="${getFlagCode(ev.home_team)?'background:transparent':'background:var(--bg4)'}">${getFlagImg(ev.home_team,'w80','width:80px;height:60px;object-fit:cover;border-radius:8px')||`<span style="font-size:24px;font-weight:700">${teamInitials(ev.home_team)}</span>`}</div>
           <div class="mh-name">${ev.home_team}</div>
           ${!wc?`<div style="margin-top:4px"><span class="chip orange">HOME</span></div>`:''}
         </div>
@@ -4142,7 +4184,7 @@ function renderFullAnalysis({oddsData,matrix,lambda,markets,topBets,aiText,leagu
           ${wc?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Neutral Venue · No home advantage</div>`:''}
         </div>
         <div class="mh-team">
-          <div class="mh-badge" style="font-size:${aFlag?'42px':'24px'};background:${aFlag?'transparent':'var(--bg4)'}">${aFlag||teamInitials(ev.away_team)}</div>
+          <div class="mh-badge" style="${getFlagCode(ev.away_team)?'background:transparent':'background:var(--bg4)'}">${getFlagImg(ev.away_team,'w80','width:80px;height:60px;object-fit:cover;border-radius:8px')||`<span style="font-size:24px;font-weight:700">${teamInitials(ev.away_team)}</span>`}</div>
           <div class="mh-name">${ev.away_team}</div>
           ${!wc?`<div style="margin-top:4px"><span class="chip blue">AWAY</span></div>`:''}
         </div>
