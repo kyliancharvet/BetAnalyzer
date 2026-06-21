@@ -2994,6 +2994,17 @@ async function fetchWCTeamStats(teamName){
 }
 
 function calcWCLambda(homeResult, awayResult, oddsData){
+  const _matchId = ST.match?.id || ST.match?.fixture?.id;
+  const _cacheKey = _matchId ? `lambda_${_matchId}` : null;
+  if(_cacheKey){
+    try{
+      const _cached=JSON.parse(sessionStorage.getItem(_cacheKey)||'null');
+      if(_cached?.home&&_cached?.away){
+        console.log(`[Lambda] home=${_cached.home.toFixed(2)} away=${_cached.away.toFixed(2)} (source: cached)`);
+        return {home:_cached.home, away:_cached.away, hSource:'cached', aSource:'cached'};
+      }
+    }catch(e){}
+  }
   // homeResult / awayResult are either {stats, source} objects or null
   const homeStats = homeResult?.stats ?? homeResult;
   const awayStats = awayResult?.stats ?? awayResult;
@@ -3053,6 +3064,10 @@ function calcWCLambda(homeResult, awayResult, oddsData){
       }
     }
   }
+  // Cache the blended lambda so re-analysis of the same match uses the same values
+  if(_cacheKey){
+    try{ sessionStorage.setItem(_cacheKey, JSON.stringify({home:lh, away:la})); }catch(e){}
+  }
   // H2H historical adjustment: if one team won 4+ of last 5, ±5% on lambda
   const h2hAdj=calcH2HAdjustment(hName, aName);
   if(h2hAdj.dominantTeam){
@@ -3078,9 +3093,13 @@ function calcWCLambda(homeResult, awayResult, oddsData){
     const fallback=estimateLambdaFromOdds(oddsData);
     if(fallback){
       console.log('[WC] no real stats for either team — using odds-implied lambda fallback');
+      const _src = hSourceFinal.includes('[calibrated]') ? 'blend' : 'model';
+      console.log(`[Lambda] home=${fallback.home.toFixed(2)} away=${fallback.away.toFixed(2)} (source: odds-implied)`);
       return {...fallback, hSource:'odds-implied', aSource:'odds-implied'};
     }
   }
+  const _src = hSourceFinal.includes('[calibrated]') ? 'blend' : 'model';
+  console.log(`[Lambda] home=${lh.toFixed(2)} away=${la.toFixed(2)} (source: ${_src})`);
   return {home:lh, away:la, hSource:hSourceFinal, aSource:aSourceFinal};
 }
 
