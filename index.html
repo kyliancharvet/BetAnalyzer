@@ -79,8 +79,8 @@ input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
 .mc-header{background:linear-gradient(90deg,#1a56db 0%,#0891b2 55%,#059669 100%);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;min-height:34px}
 .mc-header-comp{font-size:10px;font-weight:800;color:rgba(255,255,255,0.95);text-transform:uppercase;letter-spacing:0.8px}
 .mc-header-stage{font-size:10px;font-weight:600;color:rgba(255,255,255,0.78)}
-/* Stadium gradient body */
-.mc-body{background:linear-gradient(180deg,#0d1b4b 0%,#0f1535 55%,#080e20 100%);padding:18px 16px 14px}
+/* Stadium hero gradient body — blue/teal sky fades to dark pitch */
+.mc-body{background:linear-gradient(180deg,#0891b2 0%,#1e40af 40%,#0f172a 100%);padding:18px 16px 14px}
 /* Teams */
 .match-card .mc-teams{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:16px}
 .match-card .mc-team{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:9px}
@@ -100,7 +100,8 @@ input,select{font-family:var(--fb);color:var(--text);background:var(--bg3)}
 .mc-odd{background:#ffffff;border-radius:10px;padding:8px 4px;text-align:center;flex:1;cursor:pointer;transition:all .15s;border:none}
 .mc-odd:hover{background:#eff6ff;transform:scale(1.04)}
 .mc-odd .ol{font-size:10px;color:#64748b;font-weight:600;letter-spacing:0.2px;margin-bottom:2px}
-.mc-odd .ov{font-size:15px;font-weight:900;color:#dc2626;font-family:system-ui,sans-serif}
+.mc-odd .ov{font-size:18px;font-weight:900;color:#dc2626;font-family:system-ui,sans-serif}
+.mc-date{font-size:10px;font-weight:600;color:rgba(255,255,255,0.55);text-align:center;margin-top:2px;white-space:nowrap}
 /* Probability bar */
 .mc-prob-bar-row{display:flex;height:4px;border-radius:2px;overflow:hidden;margin-top:10px;gap:1px}
 .mc-prob-h{border-radius:2px 0 0 2px;background:#1a56db;transition:width .6s}
@@ -3824,8 +3825,7 @@ function renderHome(){
         <div class="wc-chips" style="margin-top:20px">
           <span class="chip gold">Group Stage</span>
           <span class="chip green">Live Odds</span>
-          <span class="chip orange">Dixon-Coles</span>
-          <span class="chip blue">AI Scout</span>
+          <span class="chip blue">AI Analysis</span>
         </div>
         <button class="wc-btn">ANALYZE MATCHES</button>
       </div>
@@ -3940,7 +3940,8 @@ function renderMatchCards(events){
           </div>
           <div class="mc-vs-block">
             <div class="mc-vs-label">VS</div>
-            <div class="mc-time">${formatTime(d)}</div>
+            <div class="mc-time">${d.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false})}</div>
+            <div class="mc-date">${d.toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'})}</div>
           </div>
           <div class="mc-team">
             <div class="mc-flag-circle">${getFlag(ev.away_team)}</div>
