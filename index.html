@@ -1556,6 +1556,10 @@ const WC2026_RESULTS=[
   {id:'2026_sco_mar',home:'Scotland',away:'Morocco',hg:0,ag:1},
   {id:'2026_bra_hai',home:'Brazil',away:'Haiti',hg:3,ag:0},
   {id:'2026_tur_par',home:'Turkey',away:'Paraguay',hg:0,ag:1},
+  {id:'2026_ned_swe',home:'Netherlands',away:'Sweden',hg:5,ag:1},
+  {id:'2026_ger_civ',home:'Germany',away:'Ivory Coast',hg:2,ag:1},
+  {id:'2026_ecu_cur',home:'Ecuador',away:'Curacao',hg:0,ag:0},
+  {id:'2026_tun_jpn',home:'Tunisia',away:'Japan',hg:0,ag:4},
 ];
 
 async function syncWC2026(){
@@ -4949,6 +4953,7 @@ function init(){
   // Clear stale session cache on load so API endpoint changes take effect
   try{ sessionStorage.clear(); }catch(e){}
   loadCalibration(); // async — loads confederation factors from Supabase in background
+  syncWC2026();     // push any new results to Supabase and refresh calibration
   renderHome();
 }
 
